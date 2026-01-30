@@ -153,7 +153,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }) => {
           
           {/* --- GENERAL TAB --- */}
           {activeTab === 'GENERAL' && (
-            <div className="bg-white p-6 rounded-xl shadow-md border border-slate-100">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
                   <Tag size={20} />
@@ -194,7 +194,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }) => {
 
           {/* --- USER MANAGEMENT TAB --- */}
           {activeTab === 'USERS' && (
-            <div className="bg-white p-6 rounded-xl shadow-md border border-slate-100">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
                 <div className="flex items-center gap-3 mb-6">
                     <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
                         <Users size={20} />
@@ -243,7 +243,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }) => {
 
           {/* --- DATABASE TAB --- */}
           {activeTab === 'DATABASE' && (
-            <div className="bg-white p-6 rounded-xl shadow-md border border-slate-100">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
                <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-indigo-100 rounded-lg text-indigo-600">
                   <Database size={20} />

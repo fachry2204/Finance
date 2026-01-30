@@ -2,7 +2,7 @@
 import React, { useState } from 'react';
 import { Reimbursement, ItemDetail, ReimbursementStatus } from '../types';
 import { generateId, formatCurrency, formatDate } from '../utils';
-import { Plus, Save, UploadCloud, Trash2, User, FileText, Eye, X, CheckCircle, XCircle, Clock, Loader, AlertCircle, Lock, Pencil, Check } from 'lucide-react';
+import { Plus, Save, UploadCloud, Trash2, User, FileText, Eye, X, CheckCircle, XCircle, Clock, Loader, AlertCircle, Lock } from 'lucide-react';
 
 interface ReimbursementProps {
   reimbursements: Reimbursement[];
@@ -28,7 +28,6 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   const [activityName, setActivityName] = useState('');
   const [description, setDescription] = useState('');
   const [items, setItems] = useState<ItemDetail[]>([]);
-  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   // Update Status Form State
   const [tempStatus, setTempStatus] = useState<ReimbursementStatus | null>(null);
@@ -36,25 +35,10 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   const [rejectionReason, setRejectionReason] = useState('');
 
   const addItem = () => {
-    const newId = generateId();
-    setItems([...items, { id: newId, name: '', qty: 1, price: 0, total: 0 }]);
-    setEditingItemId(newId);
+    setItems([...items, { id: generateId(), name: '', qty: 1, price: 0, total: 0 }]);
   };
 
-  const removeItem = (id: string) => {
-    setItems(items.filter(i => i.id !== id));
-    if(editingItemId === id) setEditingItemId(null);
-  };
-
-  const handleSaveItem = (id: string) => {
-    const item = items.find(i => i.id === id);
-    if (!item) return;
-    if (!item.name.trim() || item.qty <= 0) {
-       alert("Mohon lengkapi nama item dan quantity minimal 1");
-       return;
-    }
-    setEditingItemId(null);
-  };
+  const removeItem = (id: string) => setItems(items.filter(i => i.id !== id));
 
   const updateItem = (id: string, field: keyof ItemDetail, value: any) => {
     setItems(items.map(item => {
@@ -103,10 +87,6 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingItemId) {
-      alert("Mohon simpan (klik centang) pada item yang sedang diedit terlebih dahulu.");
-      return;
-    }
     if (items.length === 0) return alert("Minimal 1 item reimburse.");
     if (!category) return alert("Silakan pilih kategori.");
 
@@ -148,7 +128,6 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
       setActivityName('');
       setDescription('');
       setItems([]);
-      setEditingItemId(null);
     } catch (error) {
       console.error("Gagal menyimpan reimburse:", error);
       alert("Terjadi kesalahan.");
@@ -288,78 +267,33 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
               <button type="button" onClick={addItem} className="text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium transition-colors">+ Tambah Item</button>
             </div>
             <div className="space-y-4">
-              {items.map(item => {
-                const isEditing = editingItemId === item.id;
-                return (
-                  <div key={item.id} className={`p-4 rounded-lg border border-slate-200 dark:border-slate-600 grid grid-cols-1 md:grid-cols-12 gap-4 items-center transition-colors ${isEditing ? 'bg-white dark:bg-slate-700 shadow-md ring-1 ring-blue-500/30' : 'even:bg-slate-50 dark:even:bg-slate-700/50 bg-white dark:bg-slate-800'}`}>
-                     {isEditing ? (
-                        <>
-                          <div className="md:col-span-4">
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Keterangan Barang/Jasa</label>
-                            <input type="text" required value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded text-sm outline-none focus:border-blue-500" autoFocus />
-                          </div>
-                          <div className="md:col-span-2">
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Qty</label>
-                            <input type="number" required min="1" value={item.qty} onChange={e => updateItem(item.id, 'qty', parseInt(e.target.value)||0)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded text-sm outline-none focus:border-blue-500" />
-                          </div>
-                          <div className="md:col-span-3">
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Harga</label>
-                            <input type="number" required min="0" value={item.price} onChange={e => updateItem(item.id, 'price', parseInt(e.target.value)||0)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white rounded text-sm outline-none focus:border-blue-500" />
-                          </div>
-                          <div className="md:col-span-3">
-                            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Total</label>
-                            <div className="w-full p-2 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded text-sm font-medium">{formatCurrency(item.total)}</div>
-                          </div>
-                          <div className="md:col-span-12 flex justify-between pt-2 border-t border-slate-100 dark:border-slate-600 border-dashed mt-2">
-                              <label className="cursor-pointer flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                  <UploadCloud size={16} /> {item.file ? <span className="text-blue-600 dark:text-blue-400 font-medium">{item.file.name}</span> : 'Upload Bukti Struk'}
-                                  <input type="file" className="hidden" accept="image/*,.pdf" onChange={e => handleFileUpload(item.id, e.target.files?.[0] || null)} />
-                              </label>
-                              <div className="flex gap-2">
-                                <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded" title="Hapus"><Trash2 size={16}/></button>
-                                <button type="button" onClick={() => handleSaveItem(item.id)} className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm" title="Simpan Item"><Check size={16}/></button>
-                              </div>
-                          </div>
-                        </>
-                     ) : (
-                        <>
-                          <div className="md:col-span-4">
-                             <p className="text-xs text-slate-400 mb-0.5">Item</p>
-                             <p className="font-medium text-slate-800 dark:text-slate-200">{item.name}</p>
-                          </div>
-                          <div className="md:col-span-2">
-                             <p className="text-xs text-slate-400 mb-0.5">Qty</p>
-                             <p className="text-slate-700 dark:text-slate-300">{item.qty}</p>
-                          </div>
-                          <div className="md:col-span-3">
-                             <p className="text-xs text-slate-400 mb-0.5">Harga</p>
-                             <p className="text-slate-700 dark:text-slate-300">{formatCurrency(item.price)}</p>
-                          </div>
-                          <div className="md:col-span-3 flex justify-between items-center">
-                             <div>
-                                <p className="text-xs text-slate-400 mb-0.5">Total</p>
-                                <p className="font-bold text-slate-800 dark:text-white">{formatCurrency(item.total)}</p>
-                             </div>
-                             
-                             <div className="flex gap-2">
-                                {item.filePreviewUrl && (
-                                  <a href={item.filePreviewUrl} target="_blank" rel="noopener noreferrer" className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" title="Lihat Bukti">
-                                    <FileText size={16} />
-                                  </a>
-                                )}
-                                <button type="button" onClick={() => setEditingItemId(item.id)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded" title="Edit">
-                                  <Pencil size={16} />
-                                </button>
-                                <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 rounded" title="Hapus">
-                                  <Trash2 size={16} />
-                                </button>
-                             </div>
-                          </div>
-                        </>
-                     )}
-                  </div>
-                );
-              })}
+              {items.map(item => (
+                <div key={item.id} className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-lg border border-slate-200 dark:border-slate-600 grid grid-cols-1 md:grid-cols-12 gap-4 items-end transition-colors">
+                   <div className="md:col-span-4">
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Keterangan Barang/Jasa</label>
+                    <input type="text" required value={item.name} onChange={e => updateItem(item.id, 'name', e.target.value)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded text-sm outline-none focus:border-blue-500" />
+                   </div>
+                   <div className="md:col-span-2">
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Qty</label>
+                    <input type="number" required min="1" value={item.qty} onChange={e => updateItem(item.id, 'qty', parseInt(e.target.value)||0)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded text-sm outline-none focus:border-blue-500" />
+                   </div>
+                   <div className="md:col-span-3">
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Harga</label>
+                    <input type="number" required min="0" value={item.price} onChange={e => updateItem(item.id, 'price', parseInt(e.target.value)||0)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded text-sm outline-none focus:border-blue-500" />
+                   </div>
+                   <div className="md:col-span-3">
+                    <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Total</label>
+                    <div className="w-full p-2 bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded text-sm font-medium">{formatCurrency(item.total)}</div>
+                   </div>
+                   <div className="md:col-span-12 flex justify-between pt-2 border-t border-dashed border-slate-200 dark:border-slate-600 mt-2">
+                       <label className="cursor-pointer flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
+                          <UploadCloud size={16} /> {item.file ? <span className="text-blue-600 dark:text-blue-400 font-medium">{item.file.name}</span> : 'Upload Bukti Struk'}
+                          <input type="file" className="hidden" accept="image/*,.pdf" onChange={e => handleFileUpload(item.id, e.target.files?.[0] || null)} />
+                       </label>
+                       <button type="button" onClick={() => removeItem(item.id)} className="text-rose-500 hover:text-rose-700 dark:hover:text-rose-400 p-1"><Trash2 size={16}/></button>
+                   </div>
+                </div>
+              ))}
             </div>
              <div className="flex justify-end mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
                <div className="text-right">
@@ -378,7 +312,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
         </form>
       ) : (
         <>
-          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-100 dark:border-slate-700 overflow-hidden transition-colors">
+          <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden transition-colors">
             <table className="w-full text-left">
               <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
                 <tr>
@@ -394,11 +328,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
                 {reimbursements.length > 0 ? (
                   reimbursements.sort((a,b)=> b.timestamp - a.timestamp).map(r => (
-                    <tr 
-                      key={r.id} 
-                      onClick={() => openDetail(r)}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors even:bg-slate-50 dark:even:bg-slate-800 cursor-pointer"
-                    >
+                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors even:bg-slate-50 dark:even:bg-slate-800">
                       <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">{formatDate(r.date)}</td>
                       <td className="px-6 py-4 text-sm font-medium text-slate-700 dark:text-slate-300">{r.requestorName}</td>
                       <td className="px-6 py-4 text-sm text-slate-600 dark:text-slate-300">
@@ -414,10 +344,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                       </td>
                       <td className="px-6 py-4 text-center">
                         <button 
-                          onClick={(e) => {
-                             e.stopPropagation();
-                             openDetail(r);
-                          }}
+                          onClick={() => openDetail(r)}
                           className="text-blue-500 hover:text-blue-700 dark:hover:text-blue-400 p-1 bg-blue-50 dark:bg-blue-900/20 rounded-lg transition-colors"
                           title="Lihat Detail"
                         >
