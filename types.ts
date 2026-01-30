@@ -1,9 +1,10 @@
+
 export type TransactionType = 'PEMASUKAN' | 'PENGELUARAN';
-export type ExpenseType = 'NORMAL' | 'REIMBES';
+export type ExpenseType = 'NORMAL' | 'REIMBURSE';
 
 export interface ItemDetail {
   id: string;
-  name: string; // Keterangan untuk reimbes
+  name: string; // Keterangan untuk reimburse
   qty: number;
   price: number;
   total: number;
@@ -45,7 +46,7 @@ export interface Reimbursement {
 export type PageView = 
   | 'DASHBOARD' 
   | 'ADD_EXPENSE' 
-  | 'REIMBES' 
+  | 'REIMBURSE' 
   | 'STAT_EXPENSE' 
   | 'REPORT_EXPENSE' 
   | 'ADD_INCOME' 

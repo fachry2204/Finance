@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
@@ -79,66 +80,83 @@ const App: React.FC = () => {
     setAppSettings(newSettings);
   };
 
-  // Global State (Simulating Database)
-  const [transactions, setTransactions] = useState<Transaction[]>([
-    {
-      id: 'tx-001',
-      date: '2023-10-25',
-      type: 'PEMASUKAN',
-      category: 'Project Alpha',
-      activityName: 'Termin 1 Pembayaran',
-      description: 'Pembayaran DP Project Web',
-      items: [{ id: '1', name: 'Jasa Dev', qty: 1, price: 15000000, total: 15000000 }],
-      grandTotal: 15000000,
-      timestamp: 1698200000000
-    },
-    {
-      id: 'tx-002',
-      date: '2023-10-26',
-      type: 'PENGELUARAN',
-      expenseType: 'NORMAL',
-      category: 'Operasional',
-      activityName: 'Beli Server',
-      description: 'Sewa VPS Tahunan',
-      items: [{ id: '2', name: 'VPS 8GB', qty: 1, price: 2500000, total: 2500000 }],
-      grandTotal: 2500000,
-      timestamp: 1698300000000
-    }
-  ]);
+  // --- DATA STATE & API INTEGRATION ---
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [reimbursements, setReimbursements] = useState<Reimbursement[]>([]);
 
-  const [reimbursements, setReimbursements] = useState<Reimbursement[]>([
-    {
-      id: 'rm-001',
-      date: '2023-10-27',
-      requestorName: 'Budi Santoso',
-      category: 'Transportasi',
-      activityName: 'Meeting Client',
-      description: 'Grab ke kantor client',
-      items: [{ id: '3', name: 'Grab Car', qty: 1, price: 75000, total: 75000 }],
-      grandTotal: 75000,
-      status: 'PENDING',
-      timestamp: 1698400000000
-    }
-  ]);
+  // Fetch Data on Load
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const txRes = await fetch('/api/transactions');
+        const txData = await txRes.json();
+        if (Array.isArray(txData)) setTransactions(txData);
 
-  const handleAddTransaction = (transaction: Transaction) => {
-    setTransactions([...transactions, transaction]);
-    // SIMULATION: If DB connected, this would POST to API
-    if (appSettings.database.isConnected) {
-      console.log("Simulating Save to MySQL:", transaction);
-    }
-    // SIMULATION: If Drive connected, this would Upload Files
-    if (appSettings.drive.isConnected && appSettings.drive.autoUpload) {
-      console.log("Simulating Upload to Drive Folder:", appSettings.drive.selectedFolderName);
+        const rmRes = await fetch('/api/reimbursements');
+        const rmData = await rmRes.json();
+        if (Array.isArray(rmData)) setReimbursements(rmData);
+      } catch (error) {
+        console.error("Gagal mengambil data:", error);
+      }
+    };
+    fetchData();
+  }, []);
+
+  const handleAddTransaction = async (transaction: Transaction) => {
+    try {
+       // Optimistic UI Update
+       setTransactions(prev => [transaction, ...prev]);
+
+       const res = await fetch('/api/transactions', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(transaction)
+       });
+       
+       if (!res.ok) {
+         throw new Error('Gagal menyimpan ke server');
+       }
+    } catch (error) {
+      alert("Gagal menyimpan transaksi ke database.");
+      console.error(error);
     }
   };
 
-  const handleAddReimbursement = (reimbursement: Reimbursement) => {
-    setReimbursements([...reimbursements, reimbursement]);
+  const handleAddReimbursement = async (reimbursement: Reimbursement) => {
+    try {
+      setReimbursements(prev => [reimbursement, ...prev]);
+      
+      const res = await fetch('/api/reimbursements', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify(reimbursement)
+      });
+      if (!res.ok) throw new Error('Gagal menyimpan reimburse');
+
+    } catch (error) {
+       alert("Gagal menyimpan reimburse ke database.");
+       console.error(error);
+    }
   };
 
-  const handleUpdateReimbursement = (updatedReimb: Reimbursement) => {
-    setReimbursements(prev => prev.map(r => r.id === updatedReimb.id ? updatedReimb : r));
+  const handleUpdateReimbursement = async (updatedReimb: Reimbursement) => {
+    try {
+      setReimbursements(prev => prev.map(r => r.id === updatedReimb.id ? updatedReimb : r));
+      
+      const res = await fetch(`/api/reimbursements/${updatedReimb.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          status: updatedReimb.status,
+          rejectionReason: updatedReimb.rejectionReason
+        })
+      });
+
+      if (!res.ok) throw new Error('Gagal update status');
+    } catch (error) {
+      alert("Gagal mengupdate status di database.");
+      console.error(error);
+    }
   };
 
   const renderContent = () => {
@@ -151,7 +169,7 @@ const App: React.FC = () => {
         return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={theme === 'dark'} filterType="EXPENSE" />;
       case 'ADD_EXPENSE':
         return <Journal onAddTransaction={handleAddTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} />;
-      case 'REIMBES':
+      case 'REIMBURSE':
         return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onUpdateReimbursement={handleUpdateReimbursement} categories={appSettings.categories} />;
       case 'REPORT_EXPENSE':
         return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PENGELUARAN" />;

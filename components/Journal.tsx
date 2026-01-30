@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, ExpenseType, ItemDetail } from '../types';
 import { generateId, formatCurrency } from '../utils';
@@ -198,7 +199,7 @@ const Journal: React.FC<JournalProps> = ({
                       className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
                     >
                       <option value="NORMAL">Normal</option>
-                      <option value="REIMBES">Reimbes</option>
+                      <option value="REIMBURSE">Reimburse</option>
                     </select>
                   </div>
                 )}

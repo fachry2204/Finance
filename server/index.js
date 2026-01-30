@@ -77,6 +77,162 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
+// --- TRANSACTIONS API ---
+
+app.get('/api/transactions', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    try {
+        const [rows] = await pool.query('SELECT * FROM transactions ORDER BY created_at DESC');
+        
+        // Get items for each transaction
+        const transactions = await Promise.all(rows.map(async (t) => {
+            const [items] = await pool.query('SELECT * FROM transaction_items WHERE transaction_id = ?', [t.id]);
+            return {
+                id: t.id,
+                date: t.date, // Format might need adjustment depending on DB
+                type: t.type,
+                expenseType: t.expense_type,
+                category: t.category,
+                activityName: t.activity_name,
+                description: t.description,
+                grandTotal: parseFloat(t.grand_total),
+                items: items.map(i => ({
+                    id: i.id,
+                    name: i.name,
+                    qty: i.qty,
+                    price: parseFloat(i.price),
+                    total: parseFloat(i.total),
+                    filePreviewUrl: i.file_url // Simplify: serving url directly if needed
+                })),
+                timestamp: new Date(t.created_at).getTime()
+            };
+        }));
+        res.json(transactions);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching transactions' });
+    }
+});
+
+app.post('/api/transactions', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const t = req.body;
+        
+        // Insert Transaction
+        await conn.query(
+            'INSERT INTO transactions (id, date, type, expense_type, category, activity_name, description, grand_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [t.id, t.date, t.type, t.expenseType || null, t.category, t.activityName, t.description, t.grandTotal]
+        );
+
+        // Insert Items
+        for (const item of t.items) {
+             await conn.query(
+                'INSERT INTO transaction_items (id, transaction_id, name, qty, price, total) VALUES (?, ?, ?, ?, ?, ?)',
+                [item.id, t.id, item.name, item.qty, item.price, item.total]
+             );
+        }
+
+        await conn.commit();
+        res.json({ status: 'success', message: 'Transaction saved' });
+    } catch (error) {
+        await conn.rollback();
+        console.error(error);
+        res.status(500).json({ message: 'Failed to save transaction', error: error.message });
+    } finally {
+        conn.release();
+    }
+});
+
+// --- REIMBURSEMENTS API ---
+
+app.get('/api/reimbursements', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    try {
+        const [rows] = await pool.query('SELECT * FROM reimbursements ORDER BY created_at DESC');
+        
+        const reimbursements = await Promise.all(rows.map(async (r) => {
+            const [items] = await pool.query('SELECT * FROM reimbursement_items WHERE reimbursement_id = ?', [r.id]);
+            return {
+                id: r.id,
+                date: r.date,
+                requestorName: r.requestor_name,
+                category: r.category,
+                activityName: r.activity_name,
+                description: r.description,
+                grandTotal: parseFloat(r.grand_total),
+                status: r.status,
+                transferProofUrl: r.transfer_proof_url,
+                rejectionReason: r.rejection_reason,
+                items: items.map(i => ({
+                    id: i.id,
+                    name: i.name,
+                    qty: i.qty,
+                    price: parseFloat(i.price),
+                    total: parseFloat(i.total),
+                    filePreviewUrl: i.file_url
+                })),
+                timestamp: new Date(r.created_at).getTime()
+            };
+        }));
+        res.json(reimbursements);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Error fetching reimbursements' });
+    }
+});
+
+app.post('/api/reimbursements', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const r = req.body;
+        
+        await conn.query(
+            'INSERT INTO reimbursements (id, date, requestor_name, category, activity_name, description, grand_total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+            [r.id, r.date, r.requestorName, r.category, r.activityName, r.description, r.grandTotal, 'PENDING']
+        );
+
+        for (const item of r.items) {
+             await conn.query(
+                'INSERT INTO reimbursement_items (id, reimbursement_id, name, qty, price, total) VALUES (?, ?, ?, ?, ?, ?)',
+                [item.id, r.id, item.name, item.qty, item.price, item.total]
+             );
+        }
+
+        await conn.commit();
+        res.json({ status: 'success', message: 'Reimbursement saved' });
+    } catch (error) {
+        await conn.rollback();
+        console.error(error);
+        res.status(500).json({ message: 'Failed to save reimbursement', error: error.message });
+    } finally {
+        conn.release();
+    }
+});
+
+app.put('/api/reimbursements/:id', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { id } = req.params;
+    const { status, rejectionReason } = req.body;
+    
+    try {
+        await pool.query(
+            'UPDATE reimbursements SET status = ?, rejection_reason = ? WHERE id = ?',
+            [status, rejectionReason || null, id]
+        );
+        res.json({ status: 'success', message: 'Status updated' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: 'Failed to update status' });
+    }
+});
+
+// --- AUTH & DRIVE (Existing Code) ---
+
 app.get('/auth/google', (req, res) => {
     if (!oauth2Client) return res.status(500).json({ message: 'Google Client ID belum dikonfigurasi.' });
     const scopes = ['https://www.googleapis.com/auth/drive.file'];

@@ -1,3 +1,4 @@
+
 import React, { useMemo } from 'react';
 import { Transaction, Reimbursement } from '../types';
 import { formatCurrency } from '../utils';
@@ -104,7 +105,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
           <div className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 relative overflow-hidden transition-colors">
             <div className="flex justify-between items-start">
               <div>
-                <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Total Reimbes (Pending)</p>
+                <p className="text-sm font-medium text-slate-500 dark:text-slate-400 mb-1">Total Reimburse (Pending)</p>
                 <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400">{formatCurrency(stats.totalReimbursePending)}</h3>
               </div>
               <div className="p-2 bg-amber-100 dark:bg-amber-900/30 rounded-lg text-amber-600 dark:text-amber-400">

@@ -1,3 +1,4 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, Reimbursement } from '../types';
 import { formatCurrency } from '../utils';
@@ -46,20 +47,20 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
           id: r.id,
           date: r.date,
           type: 'PENGELUARAN',
-          subType: 'REIMBES',
+          subType: 'REIMBURSE',
           category: r.category,
           activity: r.activityName,
           total: r.grandTotal,
-          desc: `Reimbes oleh: ${r.requestorName} - ${r.description}`,
+          desc: `Reimburse oleh: ${r.requestorName} - ${r.description}`,
           timestamp: r.timestamp,
-          source: 'REIMBES_MODULE'
+          source: 'REIMBURSE_MODULE'
         }))
     ];
 
     // Filter Logic
     if (startDate) data = data.filter(d => d.date >= startDate);
     if (endDate) data = data.filter(d => d.date <= endDate);
-    if (filterType !== 'ALL') data = data.filter(d => d.type === filterType || (filterType === 'REIMBES' && d.subType === 'REIMBES'));
+    if (filterType !== 'ALL') data = data.filter(d => d.type === filterType || (filterType === 'REIMBURSE' && d.subType === 'REIMBURSE'));
     if (categoryFilter) data = data.filter(d => d.category.toLowerCase().includes(categoryFilter.toLowerCase()));
 
     return data.sort((a, b) => b.timestamp - a.timestamp);
@@ -69,7 +70,7 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
     return {
       income: reportData.filter(d => d.type === 'PEMASUKAN').reduce((s, d) => s + d.total, 0),
       expense: reportData.filter(d => d.type === 'PENGELUARAN').reduce((s, d) => s + d.total, 0),
-      reimbes: reportData.filter(d => d.subType === 'REIMBES').reduce((s, d) => s + d.total, 0),
+      reimburse: reportData.filter(d => d.subType === 'REIMBURSE').reduce((s, d) => s + d.total, 0),
     };
   }, [reportData]);
 
@@ -140,7 +141,7 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
               <option value="ALL">Semua Transaksi</option>
               <option value="PEMASUKAN">Pemasukan</option>
               <option value="PENGELUARAN">Pengeluaran</option>
-              <option value="REIMBES">Khusus Reimbes</option>
+              <option value="REIMBURSE">Khusus Reimburse</option>
             </select>
           </div>
         )}
@@ -167,11 +168,11 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
           <>
             <div className="bg-rose-50 dark:bg-rose-900/20 p-4 rounded-lg border border-rose-100 dark:border-rose-800">
               <p className="text-xs text-rose-600 dark:text-rose-400 font-semibold uppercase">Total Pengeluaran (Cash)</p>
-              <p className="text-xl font-bold text-rose-700 dark:text-rose-300">{formatCurrency(summary.expense - summary.reimbes)}</p>
+              <p className="text-xl font-bold text-rose-700 dark:text-rose-300">{formatCurrency(summary.expense - summary.reimburse)}</p>
             </div>
             <div className="bg-amber-50 dark:bg-amber-900/20 p-4 rounded-lg border border-amber-100 dark:border-amber-800">
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold uppercase">Total Reimbes (Cair)</p>
-              <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{formatCurrency(summary.reimbes)}</p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-semibold uppercase">Total Reimburse (Cair)</p>
+              <p className="text-xl font-bold text-amber-700 dark:text-amber-300">{formatCurrency(summary.reimburse)}</p>
             </div>
             <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-600">
                <p className="text-xs text-slate-600 dark:text-slate-400 font-semibold uppercase">Total Cash Out</p>
@@ -215,9 +216,9 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
                         }`}>
                           {d.type}
                         </span>
-                        {d.subType === 'REIMBES' && (
+                        {d.subType === 'REIMBURSE' && (
                           <span className="inline-flex w-fit items-center px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
-                            REIMBES
+                            REIMBURSE
                           </span>
                         )}
                       </div>

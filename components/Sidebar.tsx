@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { LayoutDashboard, Receipt, FileText, X, Sun, Moon, PlusCircle, PieChart, Wallet, CreditCard, List, Settings as SettingsIcon } from 'lucide-react';
 import { PageView } from '../types';
@@ -26,15 +27,15 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
       title: 'Pengeluaran',
       items: [
         { id: 'STAT_EXPENSE' as PageView, label: 'Dashboard Cash Out', icon: PieChart },
-        { id: 'ADD_EXPENSE' as PageView, label: 'Add Pengeluaran', icon: PlusCircle },
-        { id: 'REIMBES' as PageView, label: 'Sistem Reimbes', icon: Receipt },
+        { id: 'ADD_EXPENSE' as PageView, label: 'Tambah Pengeluaran', icon: PlusCircle },
+        { id: 'REIMBURSE' as PageView, label: 'Tambah Reimburse', icon: Receipt },
         { id: 'REPORT_EXPENSE' as PageView, label: 'Laporan Pengeluaran', icon: FileText },
       ]
     },
     {
       title: 'Pemasukan',
       items: [
-        { id: 'ADD_INCOME' as PageView, label: 'Add Pemasukan', icon: Wallet },
+        { id: 'ADD_INCOME' as PageView, label: 'Tambah Pemasukan', icon: Wallet },
         { id: 'STAT_INCOME' as PageView, label: 'Statistik Pemasukan', icon: PieChart },
       ]
     },

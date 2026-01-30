@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Reimbursement, ItemDetail, ReimbursementStatus } from '../types';
 import { generateId, formatCurrency } from '../utils';
@@ -65,7 +66,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (items.length === 0) return alert("Minimal 1 item reimbes.");
+    if (items.length === 0) return alert("Minimal 1 item reimburse.");
     if (!category) return alert("Silakan pilih kategori.");
 
     const newReimb: Reimbursement = {
@@ -149,13 +150,13 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Sistem Reimbes</h2>
+        <h2 className="text-2xl font-bold text-slate-800 dark:text-white">Tambah Reimburse</h2>
         {view === 'LIST' ? (
           <button 
             onClick={() => setView('FORM')}
             className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors shadow-sm font-medium"
           >
-            <Plus size={18} /> Ajukan Reimbes
+            <Plus size={18} /> Ajukan Reimburse
           </button>
         ) : (
           <button onClick={() => setView('LIST')} className="bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 px-4 py-2 rounded-lg transition-colors font-medium">Kembali</button>
@@ -202,7 +203,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
           <div className="border-t border-slate-100 dark:border-slate-700 pt-6">
              <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Detail Item Reimbes</h3>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-white">Detail Item Reimburse</h3>
               <button type="button" onClick={addItem} className="text-sm bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 px-3 py-1.5 rounded-lg hover:bg-blue-100 dark:hover:bg-blue-900/50 font-medium transition-colors">+ Tambah Item</button>
             </div>
             <div className="space-y-4">
@@ -236,7 +237,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
             </div>
              <div className="flex justify-end mt-6 pt-4 border-t border-slate-100 dark:border-slate-700">
                <div className="text-right">
-                  <p className="text-sm text-slate-500 dark:text-slate-400">Grand Total Reimbes</p>
+                  <p className="text-sm text-slate-500 dark:text-slate-400">Grand Total Reimburse</p>
                   <p className="text-2xl font-bold text-slate-800 dark:text-white">{formatCurrency(calculateTotal())}</p>
                </div>
             </div>
@@ -292,7 +293,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                   ))
                 ) : (
                   <tr>
-                      <td colSpan={7} className="px-6 py-10 text-center text-slate-400 dark:text-slate-500">Belum ada data reimbes</td>
+                      <td colSpan={7} className="px-6 py-10 text-center text-slate-400 dark:text-slate-500">Belum ada data reimburse</td>
                     </tr>
                 )}
               </tbody>
@@ -307,7 +308,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                 <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
                    <div>
                      <h3 className="text-xl font-bold text-slate-800 dark:text-white flex items-center gap-2">
-                       Detail Reimbes
+                       Detail Reimburse
                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-bold border ${getStatusColor(selectedReimb.status)}`}>
                          {selectedReimb.status}
                        </span>
