@@ -35,6 +35,9 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   const [transferProofFile, setTransferProofFile] = useState<File | null>(null);
   const [rejectionReason, setRejectionReason] = useState('');
 
+  // Image Preview Modal State
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
   const addItem = () => {
     const newId = generateId();
     setItems([...items, { id: newId, name: '', qty: 1, price: 0, total: 0 }]);
@@ -311,10 +314,15 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                             <div className="w-full p-2 bg-slate-100 dark:bg-slate-900/50 border border-slate-200 dark:border-slate-600 text-slate-900 dark:text-slate-200 rounded text-sm font-medium">{formatCurrency(item.total)}</div>
                           </div>
                           <div className="md:col-span-12 flex justify-between pt-2 border-t border-slate-100 dark:border-slate-600 border-dashed mt-2">
-                              <label className="cursor-pointer flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                                  <UploadCloud size={16} /> {item.file ? <span className="text-blue-600 dark:text-blue-400 font-medium">{item.file.name}</span> : 'Upload Bukti Struk'}
-                                  <input type="file" className="hidden" accept="image/*,.pdf" onChange={e => handleFileUpload(item.id, e.target.files?.[0] || null)} />
-                              </label>
+                              <div className="flex items-center gap-3">
+                                <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm">
+                                    <UploadCloud size={14} /> 
+                                    Upload Bukti
+                                    <input type="file" className="hidden" accept="image/*,.pdf" onChange={e => handleFileUpload(item.id, e.target.files?.[0] || null)} />
+                                </label>
+                                {item.file && <span className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate max-w-[150px]">{item.file.name}</span>}
+                              </div>
+                              
                               <div className="flex gap-2">
                                 <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded" title="Hapus"><Trash2 size={16}/></button>
                                 <button type="button" onClick={() => handleSaveItem(item.id)} className="p-1.5 bg-blue-600 text-white rounded hover:bg-blue-700 shadow-sm" title="Simpan Item"><Check size={16}/></button>
@@ -343,16 +351,18 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                              
                              <div className="flex gap-2">
                                 {item.filePreviewUrl && (
-                                  <a 
-                                    href={item.filePreviewUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
+                                  <button 
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      setPreviewImage(item.filePreviewUrl || null);
+                                    }} 
                                     className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" 
                                     title="Lihat Bukti"
-                                    onClick={(e) => e.stopPropagation()} // Prevent row click
                                   >
                                     <FileText size={16} />
-                                  </a>
+                                  </button>
                                 )}
                                 <button type="button" onClick={() => setEditingItemId(item.id)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded" title="Edit">
                                   <Pencil size={16} />
@@ -519,15 +529,12 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                               <td className="px-4 py-2 text-right font-medium text-slate-800 dark:text-slate-200">{formatCurrency(item.total)}</td>
                               <td className="px-4 py-2 text-center">
                                 {item.filePreviewUrl ? (
-                                  <a 
-                                    href={item.filePreviewUrl} 
-                                    target="_blank" 
-                                    rel="noreferrer" 
+                                  <button 
+                                    onClick={() => setPreviewImage(item.filePreviewUrl || null)}
                                     className="text-blue-500 hover:underline flex justify-center"
-                                    onClick={(e) => e.stopPropagation()} // Prevent row click
                                   >
                                     <FileText size={16}/>
-                                  </a>
+                                  </button>
                                 ) : '-'}
                               </td>
                             </tr>
@@ -561,15 +568,12 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                           {selectedReimb.transferProofUrl && (
                             <div className="mt-2">
                               <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1">Bukti Transfer:</p>
-                              <a 
-                                href={selectedReimb.transferProofUrl} 
-                                target="_blank" 
-                                rel="noreferrer" 
+                              <button 
+                                onClick={() => setPreviewImage(selectedReimb.transferProofUrl || null)}
                                 className="inline-flex items-center gap-2 px-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm text-blue-600 hover:text-blue-700"
-                                onClick={(e) => e.stopPropagation()} // Prevent row click
                               >
                                 <FileText size={16} /> Lihat Bukti Transfer
-                              </a>
+                              </button>
                             </div>
                           )}
                        </div>
@@ -599,8 +603,8 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                                Upload Bukti Transfer <span className="text-rose-500">*</span>
                              </label>
                              <div className="flex items-center gap-3">
-                               <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 rounded-lg text-slate-700 dark:text-slate-200 text-sm transition-colors">
-                                  <UploadCloud size={16} /> Pilih File
+                               <label className="cursor-pointer inline-flex items-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm transition-colors shadow-sm font-medium">
+                                  <UploadCloud size={16} /> Upload Bukti
                                   <input 
                                     type="file" 
                                     className="hidden" 
@@ -645,6 +649,21 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* IMAGE PREVIEW MODAL */}
+          {previewImage && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-90 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewImage(null)}>
+              <button className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors" onClick={() => setPreviewImage(null)}>
+                <X size={32} />
+              </button>
+              <img 
+                src={previewImage} 
+                alt="Preview" 
+                className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain" 
+                onClick={(e) => e.stopPropagation()} 
+              />
             </div>
           )}
         </>

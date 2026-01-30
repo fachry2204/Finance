@@ -14,6 +14,7 @@ interface DashboardProps {
 
 const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isDarkMode, filterType = 'ALL' }) => {
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
   
   const stats = useMemo(() => {
     const totalIncome = transactions
@@ -301,15 +302,12 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
                               <td className="px-4 py-2 text-right font-medium">{formatCurrency(item.total)}</td>
                               <td className="px-4 py-2 text-center">
                                 {item.filePreviewUrl ? (
-                                  <a 
-                                    href={item.filePreviewUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
+                                  <button 
+                                    onClick={() => setPreviewImage(item.filePreviewUrl || null)}
                                     className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
-                                    onClick={(e) => e.stopPropagation()} // Prevent row click
                                   >
                                     <File size={14}/> Lihat
-                                  </a>
+                                  </button>
                                 ) : <span className="text-slate-300">-</span>}
                               </td>
                             </tr>
@@ -323,6 +321,21 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
               </div>
             </div>
           )}
+
+      {/* IMAGE PREVIEW MODAL */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-90 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewImage(null)}>
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors" onClick={() => setPreviewImage(null)}>
+            <X size={32} />
+          </button>
+          <img 
+            src={previewImage} 
+            alt="Preview" 
+            className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
+      )}
     </div>
   );
 };

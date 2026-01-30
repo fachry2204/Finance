@@ -37,6 +37,9 @@ const Journal: React.FC<JournalProps> = ({
   // Item Editing State
   const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
+  // Image Preview Modal State
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+
   // Update state when props change
   useEffect(() => {
     setView(initialView);
@@ -373,11 +376,15 @@ const Journal: React.FC<JournalProps> = ({
 
                         {/* File Upload Row for Edit Mode */}
                         <div className="md:col-span-12 flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-600 border-dashed mt-2">
-                          <label className="cursor-pointer flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400 hover:text-blue-600 dark:hover:text-blue-400 transition-colors">
-                             <UploadCloud size={16} />
-                             {item.file ? <span className="text-blue-600 dark:text-blue-400 font-medium truncate max-w-[150px]">{item.file.name}</span> : 'Upload Bukti'}
-                             <input type="file" className="hidden" accept="image/*,.pdf" onChange={(e) => handleFileUpload(item.id, e.target.files ? e.target.files[0] : null)} />
-                          </label>
+                          <div className="flex items-center gap-3">
+                            <label className="cursor-pointer flex items-center gap-2 px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-medium transition-colors shadow-sm">
+                                <UploadCloud size={14} />
+                                Upload Bukti
+                                <input type="file" className="hidden" accept="image/*,.pdf" onChange={(e) => handleFileUpload(item.id, e.target.files ? e.target.files[0] : null)} />
+                            </label>
+                            {item.file && <span className="text-xs text-blue-600 dark:text-blue-400 font-medium truncate max-w-[150px]">{item.file.name}</span>}
+                          </div>
+                          
                           <div className="flex gap-2">
                              <button type="button" onClick={() => removeItem(item.id)} className="p-1.5 text-rose-500 hover:bg-rose-50 rounded" title="Hapus">
                                <Trash2 size={16} />
@@ -411,16 +418,18 @@ const Journal: React.FC<JournalProps> = ({
                            
                            <div className="flex gap-2">
                               {item.filePreviewUrl && (
-                                <a 
-                                  href={item.filePreviewUrl} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer" 
+                                <button 
+                                  type="button"
+                                  onClick={(e) => {
+                                    e.preventDefault();
+                                    e.stopPropagation();
+                                    setPreviewImage(item.filePreviewUrl || null);
+                                  }}
                                   className="p-1.5 text-blue-500 hover:bg-blue-50 rounded" 
                                   title="Lihat Bukti"
-                                  onClick={(e) => e.stopPropagation()} // Prevent row click
                                 >
                                   <FileText size={16} />
-                                </a>
+                                </button>
                               )}
                               <button type="button" onClick={() => setEditingItemId(item.id)} className="p-1.5 text-slate-500 hover:text-blue-600 hover:bg-slate-100 rounded" title="Edit">
                                 <Pencil size={16} />
@@ -521,17 +530,18 @@ const Journal: React.FC<JournalProps> = ({
                            {t.items.some(i => i.filePreviewUrl) ? (
                               <div className="flex justify-center gap-1">
                                   {t.items.filter(i => i.filePreviewUrl).map((i, idx) => (
-                                      <a 
+                                      <button 
                                         key={idx} 
-                                        href={i.filePreviewUrl} 
-                                        target="_blank" 
-                                        rel="noopener noreferrer" 
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          setPreviewImage(i.filePreviewUrl || null);
+                                        }}
                                         className="text-blue-500 p-1 hover:text-blue-700" 
                                         title={i.name}
-                                        onClick={(e) => e.stopPropagation()} // Prevent row click
                                       >
                                           <FileText size={16} />
-                                      </a>
+                                      </button>
                                   ))}
                               </div>
                            ) : <span className="text-slate-300 dark:text-slate-600">-</span>}
@@ -626,15 +636,12 @@ const Journal: React.FC<JournalProps> = ({
                               <td className="px-4 py-2 text-right font-medium">{formatCurrency(item.total)}</td>
                               <td className="px-4 py-2 text-center">
                                 {item.filePreviewUrl ? (
-                                  <a 
-                                    href={item.filePreviewUrl} 
-                                    target="_blank" 
-                                    rel="noopener noreferrer" 
+                                  <button 
+                                    onClick={() => setPreviewImage(item.filePreviewUrl || null)}
                                     className="text-blue-600 hover:text-blue-800 inline-flex items-center gap-1"
-                                    onClick={(e) => e.stopPropagation()} // Prevent row click
                                   >
                                     <File size={14}/> Lihat
-                                  </a>
+                                  </button>
                                 ) : <span className="text-slate-300">-</span>}
                               </td>
                             </tr>
@@ -649,6 +656,21 @@ const Journal: React.FC<JournalProps> = ({
             </div>
           )}
         </>
+      )}
+
+      {/* IMAGE PREVIEW MODAL */}
+      {previewImage && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-90 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewImage(null)}>
+          <button className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors" onClick={() => setPreviewImage(null)}>
+            <X size={32} />
+          </button>
+          <img 
+            src={previewImage} 
+            alt="Preview" 
+            className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain" 
+            onClick={(e) => e.stopPropagation()} 
+          />
+        </div>
       )}
     </div>
   );
