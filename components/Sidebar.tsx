@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Receipt, FileText, X, Sun, Moon, PlusCircle, PieChart, Wallet, CreditCard, List, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutDashboard, Receipt, FileText, X, PlusCircle, PieChart, Wallet, List, Settings as SettingsIcon } from 'lucide-react';
 import { PageView } from '../types';
 
 interface SidebarProps {
@@ -8,11 +8,9 @@ interface SidebarProps {
   setActivePage: (page: PageView) => void;
   isOpen: boolean;
   setIsOpen: (isOpen: boolean) => void;
-  theme: 'light' | 'dark';
-  toggleTheme: () => void;
 }
 
-const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, setIsOpen, theme, toggleTheme }) => {
+const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, setIsOpen }) => {
   
   const menuGroups = [
     {
@@ -52,19 +50,18 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
       {/* Mobile Overlay */}
       {isOpen && (
         <div 
-          className="fixed inset-0 z-20 bg-black bg-opacity-50 md:hidden"
+          className="fixed inset-0 z-40 bg-black bg-opacity-50 md:hidden"
           onClick={() => setIsOpen(false)}
         />
       )}
 
       {/* Sidebar Container */}
-      <div className={`fixed inset-y-0 left-0 z-30 w-64 bg-slate-900 dark:bg-slate-950 text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col`}>
-        <div className="flex items-center justify-between p-6 border-b border-slate-700 dark:border-slate-800">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-blue-500 rounded-lg flex items-center justify-center font-bold text-xl text-white">R</div>
-            <span className="text-xl font-bold tracking-wide">KEUANGAN RDR</span>
-          </div>
-          <button onClick={() => setIsOpen(false)} className="md:hidden text-slate-400 hover:text-white">
+      {/* Adjusted top position to account for 64px header */}
+      <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-slate-900 text-white transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col pt-0`}>
+        
+        {/* Mobile Close Button Header inside Sidebar */}
+        <div className="flex md:hidden items-center justify-end p-4 border-b border-slate-800">
+           <button onClick={() => setIsOpen(false)} className="text-slate-400 hover:text-white">
             <X size={24} />
           </button>
         </div>
@@ -89,7 +86,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
                       className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
                         isActive 
                           ? 'bg-blue-600 text-white shadow-lg shadow-blue-900/50' 
-                          : 'text-slate-400 hover:bg-slate-800 dark:hover:bg-slate-900 hover:text-white'
+                          : 'text-slate-400 hover:bg-slate-800 hover:text-white'
                       }`}
                     >
                       <Icon size={18} />
@@ -102,30 +99,9 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
           ))}
         </nav>
 
-        <div className="p-6 border-t border-slate-700 dark:border-slate-800 mt-auto">
-          {/* Theme Toggle */}
-          <div className="flex items-center justify-between mb-6 bg-slate-800 dark:bg-slate-900 p-1.5 rounded-lg">
-            <button
-              onClick={toggleTheme}
-              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-colors ${theme === 'light' ? 'bg-white text-slate-900 shadow-sm' : 'text-slate-400 hover:text-white'}`}
-            >
-              <Sun size={14} /> Light
-            </button>
-            <button
-              onClick={toggleTheme}
-              className={`flex-1 flex items-center justify-center gap-2 py-1.5 rounded-md text-xs font-medium transition-colors ${theme === 'dark' ? 'bg-slate-700 text-white shadow-sm' : 'text-slate-400 hover:text-white'}`}
-            >
-              <Moon size={14} /> Dark
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <img src="https://picsum.photos/40/40" alt="Admin" className="w-10 h-10 rounded-full border-2 border-slate-600" />
-            <div>
-              <p className="text-sm font-semibold text-white">Admin Keuangan</p>
-              <p className="text-xs text-slate-400">Online</p>
-            </div>
-          </div>
+        {/* Removed Footer Section (Profile/Theme) as requested */}
+        <div className="p-4 text-xs text-center text-slate-600 border-t border-slate-800">
+           v1.0.0 Stable
         </div>
       </div>
     </>

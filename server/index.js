@@ -13,6 +13,7 @@ const multer = require('multer');
 const fs = require('fs');
 const path = require('path');
 const { google } = require('googleapis');
+const crypto = require('crypto');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -27,7 +28,7 @@ const dbConfig = {
     user: process.env.DB_USER || 'root',
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'keuangan_rdr',
-    dateStrings: true // PENTING: Agar tanggal kembali sebagai string 'YYYY-MM-DD', bukan Date Object
+    dateStrings: true 
 };
 
 let pool;
@@ -37,6 +38,11 @@ try {
 } catch (err) {
     console.error('Database configuration error:', err);
 }
+
+// Helper: Hash Password (SHA256)
+const hashPassword = (password) => {
+    return crypto.createHash('sha256').update(password).digest('hex');
+};
 
 // --- GOOGLE DRIVE OAUTH2 SETUP ---
 let oauth2Client = null;
@@ -50,7 +56,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 
 const upload = multer({ dest: 'uploads/' });
 
-// --- API ROUTES (DEFINED FIRST) ---
+// --- API ROUTES ---
 
 app.get('/api/test-db', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
@@ -67,8 +73,59 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
-// --- TRANSACTIONS API ---
+// --- AUTH API ---
+app.post('/api/login', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { username, password } = req.body;
+    
+    try {
+        const hashedPassword = hashPassword(password);
+        const [rows] = await pool.query('SELECT id, username, role FROM users WHERE username = ? AND password = ?', [username, hashedPassword]);
+        
+        if (rows.length > 0) {
+            res.json({ success: true, user: rows[0] });
+        } else {
+            res.status(401).json({ success: false, message: 'Username atau password salah' });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Server error' });
+    }
+});
 
+app.get('/api/users', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    try {
+        const [rows] = await pool.query('SELECT id, username, role FROM users');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch users' });
+    }
+});
+
+app.post('/api/users', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { username, password } = req.body;
+    try {
+        const hashedPassword = hashPassword(password);
+        await pool.query('INSERT INTO users (username, password, role) VALUES (?, ?, ?)', [username, hashedPassword, 'admin']);
+        res.json({ success: true, message: 'User created' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to create user. Username might exist.' });
+    }
+});
+
+app.delete('/api/users/:id', async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM users WHERE id = ?', [id]);
+        res.json({ success: true, message: 'User deleted' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Failed to delete user' });
+    }
+});
+
+// --- TRANSACTIONS API ---
 app.get('/api/transactions', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
@@ -83,7 +140,7 @@ app.get('/api/transactions', async (req, res) => {
             const [items] = await pool.query('SELECT * FROM transaction_items WHERE transaction_id = ?', [t.id]);
             return {
                 id: t.id,
-                date: t.date, // Sekarang string bersih 'YYYY-MM-DD' karena dateStrings: true
+                date: t.date,
                 type: t.type,
                 expenseType: t.expense_type,
                 category: t.category,
@@ -142,7 +199,6 @@ app.post('/api/transactions', async (req, res) => {
 });
 
 // --- REIMBURSEMENTS API ---
-
 app.get('/api/reimbursements', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
@@ -290,17 +346,13 @@ app.post('/api/upload-drive', upload.single('file'), async (req, res) => {
     }
 });
 
-// --- SERVE STATIC FRONTEND (AFTER API ROUTES) ---
-// Placing this after API routes ensures that if a route matches an API endpoint, it's handled by the API.
-// Only if it doesn't match an API will it look for a static file.
+// --- SERVE STATIC FRONTEND ---
 const publicPath = path.join(__dirname, 'public');
 
 if (fs.existsSync(publicPath)) {
     console.log(`[INFO] Serving static files from: ${publicPath}`);
     app.use(express.static(publicPath));
     
-    // --- CATCH ALL ROUTE (SPA HANDLER) ---
-    // This must be the very last route.
     app.get('*', (req, res) => {
         if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
             return res.status(404).json({ message: 'API Endpoint Not Found' });

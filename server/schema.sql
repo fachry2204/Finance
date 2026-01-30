@@ -54,6 +54,16 @@ CREATE TABLE IF NOT EXISTS reimbursement_items (
     FOREIGN KEY (reimbursement_id) REFERENCES reimbursements(id) ON DELETE CASCADE
 );
 
+CREATE TABLE IF NOT EXISTS users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(50) NOT NULL UNIQUE,
+    password VARCHAR(255) NOT NULL,
+    role VARCHAR(20) DEFAULT 'admin'
+);
+
 -- Seed Categories
 INSERT IGNORE INTO categories (name) VALUES 
 ('Operasional'), ('Transportasi'), ('Makan & Minum'), ('ATK'), ('Marketing'), ('Gaji'), ('Maintenance'), ('Project Alpha');
+
+-- Seed Default Admin (Password: admin) - SHA256 hash of 'admin'
+INSERT IGNORE INTO users (username, password, role) VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin');

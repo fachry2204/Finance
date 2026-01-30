@@ -79,3 +79,9 @@ export interface AppSettings {
   database: DatabaseConfig;
   drive: GoogleDriveConfig;
 }
+
+export interface User {
+  id: number;
+  username: string;
+  role: string;
+}
