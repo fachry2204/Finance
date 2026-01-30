@@ -2,7 +2,7 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { Transaction, Reimbursement } from '../types';
 import { formatCurrency, formatDate } from '../utils';
-import { Download, Filter, Printer } from 'lucide-react';
+import { Download, Filter, Printer, X, Tag, Plus, Calendar, FileText } from 'lucide-react';
 
 interface ReportProps {
   transactions: Transaction[];
@@ -16,6 +16,10 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('');
+  const [selectedItem, setSelectedItem] = useState<any | null>(null);
+  
+  // State khusus untuk memfilter sub-jenis pengeluaran (Cash vs Reimburse)
+  const [expenseSubFilter, setExpenseSubFilter] = useState<'ALL' | 'NORMAL' | 'REIMBURSE'>('ALL');
 
   // Handle fixed filter
   useEffect(() => {
@@ -39,7 +43,8 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
         total: t.grandTotal,
         desc: t.description,
         timestamp: t.timestamp,
-        source: 'JURNAL'
+        source: 'JURNAL',
+        raw: t // Store raw object for modal
       })),
       // ONLY include Reimbursements that are BERHASIL (Approved)
       ...reimbursements
@@ -54,14 +59,25 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
           total: r.grandTotal,
           desc: `Reimburse oleh: ${r.requestorName} - ${r.description}`,
           timestamp: r.timestamp,
-          source: 'REIMBURSE_MODULE'
+          source: 'REIMBURSE_MODULE',
+          raw: r // Store raw object for modal
         }))
     ];
 
     // Filter Logic
     if (startDate) data = data.filter(d => d.date >= startDate);
     if (endDate) data = data.filter(d => d.date <= endDate);
-    if (filterType !== 'ALL') data = data.filter(d => d.type === filterType || (filterType === 'REIMBURSE' && d.subType === 'REIMBURSE'));
+    
+    // Filter Type Utama (Pemasukan / Pengeluaran / All)
+    if (filterType !== 'ALL') {
+        data = data.filter(d => d.type === filterType || (filterType === 'REIMBURSE' && d.subType === 'REIMBURSE'));
+    }
+
+    // Filter Sub Type Khusus Pengeluaran (Normal vs Reimburse)
+    // Hanya aktif jika kita sedang melihat laporan Pengeluaran
+    if (fixedFilterType === 'PENGELUARAN' && expenseSubFilter !== 'ALL') {
+        data = data.filter(d => d.subType === expenseSubFilter);
+    }
     
     // Updated Filter Logic for Exact Match via Dropdown
     if (categoryFilter) {
@@ -69,7 +85,7 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
     }
 
     return data.sort((a, b) => b.timestamp - a.timestamp);
-  }, [transactions, reimbursements, startDate, endDate, filterType, categoryFilter]);
+  }, [transactions, reimbursements, startDate, endDate, filterType, categoryFilter, fixedFilterType, expenseSubFilter]);
 
   const summary = useMemo(() => {
     return {
@@ -181,8 +197,8 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
           <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg text-sm outline-none focus:border-blue-500" />
         </div>
         
-        {/* Hide report type dropdown if fixedFilterType is present */}
-        {!fixedFilterType && (
+        {/* Hide report type dropdown if fixedFilterType is present, SHOW sub-type filter instead */}
+        {!fixedFilterType ? (
           <div>
             <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Jenis Laporan</label>
             <select value={filterType} onChange={e => setFilterType(e.target.value)} className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg text-sm outline-none focus:border-blue-500">
@@ -192,7 +208,20 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
               <option value="REIMBURSE">Khusus Reimburse</option>
             </select>
           </div>
-        )}
+        ) : fixedFilterType === 'PENGELUARAN' ? (
+          <div>
+            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Filter Jenis</label>
+            <select 
+                value={expenseSubFilter} 
+                onChange={e => setExpenseSubFilter(e.target.value as any)} 
+                className="w-full p-2 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white rounded-lg text-sm outline-none focus:border-blue-500"
+            >
+              <option value="ALL">Semua (Cash & Reimburse)</option>
+              <option value="NORMAL">Pengeluaran (Cash/Tunai)</option>
+              <option value="REIMBURSE">Reimburse (Ganti Uang)</option>
+            </select>
+          </div>
+        ) : null}
 
         <div>
            <label className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-1 block">Filter Kategori</label>
@@ -247,7 +276,7 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
       </div>
 
       {/* Report Table */}
-      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 overflow-hidden transition-colors">
+      <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-100 dark:border-slate-700 overflow-hidden transition-colors">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-700/50 border-b border-slate-200 dark:border-slate-700">
@@ -262,11 +291,15 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
             <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
               {reportData.length > 0 ? (
                 reportData.map((d, index) => (
-                  <tr key={d.id} className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${index % 2 === 0 ? 'even' : 'odd'}`}>
+                  <tr 
+                    key={d.id} 
+                    onClick={() => setSelectedItem(d)}
+                    className={`hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer ${index % 2 === 0 ? 'even' : 'odd'}`}
+                  >
                     <td className="px-6 py-3 text-sm text-slate-600 dark:text-slate-300 whitespace-nowrap">{formatDate(d.date)}</td>
                     <td className="px-6 py-3">
-                      <div className="flex flex-col gap-1">
-                        <span className={`inline-flex w-fit items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                      <div className="flex flex-col gap-1 items-start">
+                        <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
                           d.type === 'PEMASUKAN' 
                             ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' 
                             : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
@@ -274,9 +307,14 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
                           {d.type}
                         </span>
                         {d.subType === 'REIMBURSE' && (
-                          <span className="inline-flex w-fit items-center px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 border border-amber-200 dark:border-amber-800">
                             REIMBURSE
                           </span>
+                        )}
+                        {d.subType === 'NORMAL' && d.type === 'PENGELUARAN' && (
+                           <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] bg-slate-100 text-slate-600 dark:bg-slate-700 dark:text-slate-300 border border-slate-200 dark:border-slate-600">
+                             TUNAI
+                           </span>
                         )}
                       </div>
                     </td>
@@ -303,6 +341,86 @@ const Report: React.FC<ReportProps> = ({ transactions, reimbursements, fixedFilt
           </table>
         </div>
       </div>
+
+      {/* DETAIL MODAL */}
+      {selectedItem && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-60 backdrop-blur-sm animate-fade-in no-print">
+            <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-700">
+            <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
+                <div>
+                <h3 className="text-xl font-bold text-slate-800 dark:text-white">Detail Transaksi</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">ID: {selectedItem.id}</p>
+                </div>
+                <button 
+                onClick={(e) => { e.stopPropagation(); setSelectedItem(null); }} 
+                className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                >
+                <X size={24} />
+                </button>
+            </div>
+            
+            <div className="p-6 space-y-4">
+                <div className={`p-4 rounded-lg flex items-center gap-3 border ${
+                    selectedItem.type === 'PEMASUKAN' 
+                        ? 'bg-emerald-50 border-emerald-100 text-emerald-800' 
+                        : 'bg-rose-50 border-rose-100 text-rose-800'
+                    }`}>
+                    {selectedItem.type === 'PEMASUKAN' ? <Plus size={24} /> : <Tag size={24} />}
+                    <div className="flex-1">
+                        <p className="text-xs font-bold uppercase opacity-70">Jenis Transaksi</p>
+                        <p className="font-bold text-lg">
+                            {selectedItem.type} 
+                            {selectedItem.subType === 'REIMBURSE' ? ' (REIMBURSE)' : ''}
+                        </p>
+                    </div>
+                    <div className="text-right">
+                        <p className="text-xs font-bold uppercase opacity-70">Total</p>
+                        <p className="font-bold text-lg">{formatCurrency(selectedItem.total)}</p>
+                    </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                        <p className="text-slate-500 flex items-center gap-1 mb-1"><Calendar size={14}/> Tanggal</p>
+                        <p className="font-medium text-slate-800 dark:text-white">{formatDate(selectedItem.date)}</p>
+                    </div>
+                    <div>
+                        <p className="text-slate-500 flex items-center gap-1 mb-1"><Tag size={14}/> Kategori</p>
+                        <p className="font-medium text-slate-800 dark:text-white">{selectedItem.category}</p>
+                    </div>
+                    <div className="col-span-2">
+                        <p className="text-slate-500 mb-1">Nama Kegiatan</p>
+                        <p className="font-medium text-slate-800 dark:text-white">{selectedItem.activity}</p>
+                    </div>
+                    <div className="col-span-2">
+                        <p className="text-slate-500 mb-1">Keterangan</p>
+                        <p className="text-slate-800 dark:text-white bg-slate-50 dark:bg-slate-700 p-3 rounded-lg border border-slate-100 dark:border-slate-600">{selectedItem.desc || '-'}</p>
+                    </div>
+                    <div className="col-span-2">
+                        <p className="text-slate-500 mb-1">Sumber Data</p>
+                        <span className="inline-block px-2 py-1 rounded text-xs font-mono bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300">
+                             {selectedItem.source}
+                        </span>
+                    </div>
+                </div>
+                
+                {selectedItem.raw && selectedItem.raw.items && (
+                   <div>
+                      <h4 className="font-bold text-slate-800 dark:text-white mb-2 flex items-center gap-2"><FileText size={16}/> Items</h4>
+                      <div className="text-sm border rounded overflow-hidden dark:border-slate-600">
+                         {selectedItem.raw.items.map((it: any, idx: number) => (
+                             <div key={idx} className="flex justify-between p-2 border-b last:border-0 dark:border-slate-600 bg-slate-50 dark:bg-slate-700/50">
+                                 <span>{it.name} <span className="text-slate-400">x{it.qty}</span></span>
+                                 <span className="font-medium">{formatCurrency(it.total)}</span>
+                             </div>
+                         ))}
+                      </div>
+                   </div>
+                )}
+            </div>
+            </div>
+        </div>
+      )}
 
       {/* PRINT FOOTER */}
       <div className="print-footer mt-10 pt-4 border-t border-slate-400 text-right text-sm text-slate-600">
