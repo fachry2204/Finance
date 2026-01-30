@@ -62,6 +62,16 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }) => {
     
     try {
       const response = await fetch('/api/test-db');
+      
+      // Cek apakah response adalah JSON valid
+      const contentType = response.headers.get("content-type");
+      if (!contentType || contentType.indexOf("application/json") === -1) {
+          // Jika server mengembalikan HTML (misal halaman 404 default webserver), lempar error yang jelas
+          const text = await response.text();
+          console.error("Non-JSON response received:", text.substring(0, 100)); // Log sebagian response
+          throw new Error("Gagal menghubungi Backend API. Pastikan Server Node.js berjalan dan URL benar.");
+      }
+
       const data = await response.json();
       
       if (data.status === 'success') {
@@ -72,6 +82,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }) => {
         throw new Error(data.message);
       }
     } catch (error: any) {
+      console.error(error);
       setDbMessage({ type: 'error', text: error.message || 'Gagal terkoneksi ke server.' });
     } finally {
       setIsTestingDB(false);
@@ -82,13 +93,19 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings }) => {
   const handleConnectDrive = async () => {
     try {
       const response = await fetch('/auth/google');
+      // Cek response JSON
+      const contentType = response.headers.get("content-type");
+      if (!contentType || contentType.indexOf("application/json") === -1) {
+         throw new Error("Backend API tidak merespons JSON.");
+      }
+
       const data = await response.json();
       if (data.url) {
         window.location.href = data.url; // Redirect to Google Login
       }
     } catch (error) {
       console.error("Gagal memulai auth:", error);
-      alert("Gagal menghubungi server backend.");
+      alert("Gagal menghubungi server backend. Pastikan server berjalan.");
     }
   };
 

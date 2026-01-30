@@ -1,5 +1,5 @@
 
-// Coba load dotenv, tapi jangan crash jika tidak ada (untuk production environment yang inject variable langsung)
+// Coba load dotenv
 try {
     require('dotenv').config();
 } catch (e) {
@@ -21,6 +21,18 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// --- SERVE STATIC FRONTEND (PRODUCTION) ---
+// Mencari folder 'dist' (hasil build vite) di folder root (satu tingkat di atas folder server ini)
+const distPath = path.resolve(__dirname, '../dist');
+
+// Jika folder dist ada, layani file statisnya (CSS, JS, Images)
+if (fs.existsSync(distPath)) {
+    console.log(`[INFO] Serving static files from: ${distPath}`);
+    app.use(express.static(distPath));
+} else {
+    console.warn(`[WARN] Folder build '../dist' tidak ditemukan. Pastikan Anda sudah menjalankan 'npm run build'.`);
+}
+
 // --- DATABASE CONNECTION ---
 const dbConfig = {
     host: process.env.DB_HOST || 'localhost',
@@ -38,7 +50,6 @@ try {
 }
 
 // --- GOOGLE DRIVE OAUTH2 SETUP ---
-// Pastikan kredensial ada sebelum inisialisasi untuk mencegah error
 let oauth2Client = null;
 if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     oauth2Client = new google.auth.OAuth2(
@@ -50,13 +61,15 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     console.warn('[WARN] Google OAuth Credentials belum diset di .env');
 }
 
-// File upload handling
 const upload = multer({ dest: 'uploads/' });
 
-// --- ROUTES ---
+// --- API ROUTES ---
 
 // 1. TEST DB CONNECTION
 app.get('/api/test-db', async (req, res) => {
+    // Set Header explicit JSON agar frontend tidak bingung
+    res.setHeader('Content-Type', 'application/json');
+    
     if (!pool) return res.status(500).json({ status: 'error', message: 'Pool database belum terinisialisasi' });
     
     try {
@@ -92,14 +105,13 @@ app.get('/auth/google/callback', async (req, res) => {
         const { tokens } = await oauth2Client.getToken(code);
         oauth2Client.setCredentials(tokens);
         fs.writeFileSync('tokens.json', JSON.stringify(tokens));
-        res.redirect('/settings?status=drive_connected'); // Redirect relative agar fleksibel
+        res.redirect('/settings?status=drive_connected');
     } catch (error) {
         console.error('Error retrieving access token', error);
         res.redirect('/settings?status=drive_failed');
     }
 });
 
-// Helper: Load Token if exists
 const loadTokens = () => {
     if (!oauth2Client) return false;
     if (fs.existsSync('tokens.json')) {
@@ -151,6 +163,28 @@ app.post('/api/upload-drive', upload.single('file'), async (req, res) => {
         res.status(500).json({ message: 'Upload ke Drive gagal', error: error.message });
     }
 });
+
+// --- CATCH ALL ROUTE (HANDLE REACT ROUTER) ---
+// Route ini harus diletakkan PALING BAWAH, setelah semua route API.
+// Fungsinya: Jika request bukan ke /api, maka kembalikan file index.html milik React.
+if (fs.existsSync(distPath)) {
+    app.get('*', (req, res) => {
+        // Jangan intercept request API yang salah ketik (biarkan 404 json)
+        if (req.path.startsWith('/api') || req.path.startsWith('/auth')) {
+            return res.status(404).json({ message: 'API Endpoint Not Found' });
+        }
+        res.sendFile(path.join(distPath, 'index.html'));
+    });
+} else {
+    // Fallback jika belum di-build
+    app.get('/', (req, res) => {
+        res.send(`
+            <h1>Backend Server Berjalan</h1>
+            <p>Namun folder <code>dist</code> (Frontend) tidak ditemukan.</p>
+            <p>Silakan jalankan <code>npm run build</code> di root project Anda, lalu restart server.</p>
+        `);
+    });
+}
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
