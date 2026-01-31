@@ -16,8 +16,9 @@ const App: React.FC = () => {
   // Auth State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [isDbConnected, setIsDbConnected] = useState(true); // Default true to prevent flash
+  const [isDbConnected, setIsDbConnected] = useState(true);
 
   // App State
   const [activePage, setActivePage] = useState<PageView>('DASHBOARD');
@@ -26,8 +27,10 @@ const App: React.FC = () => {
   // Check LocalStorage for Persisted Login
   useEffect(() => {
       const savedUser = localStorage.getItem('rdr_user');
-      if (savedUser) {
+      const savedToken = localStorage.getItem('rdr_token');
+      if (savedUser && savedToken) {
           setCurrentUser(JSON.parse(savedUser));
+          setToken(savedToken);
           setIsLoggedIn(true);
       }
   }, []);
@@ -54,28 +57,54 @@ const App: React.FC = () => {
       
       // Auto Logout Logic if DB disconnects while logged in
       if (!connected && isLoggedIn) {
-        localStorage.removeItem('rdr_user');
-        setIsLoggedIn(false);
-        setCurrentUser(null);
-        // Note: The Login component will handle showing the warning modal immediately
+        handleLogoutConfirm();
       }
     }, 30000); 
 
     return () => clearInterval(interval);
   }, [isLoggedIn]);
 
-
-  const handleLogin = (user: User) => {
+  // LOGIN HANDLER
+  const handleLogin = (user: User, authToken: string) => {
       setCurrentUser(user);
+      setToken(authToken);
       setIsLoggedIn(true);
       localStorage.setItem('rdr_user', JSON.stringify(user));
+      localStorage.setItem('rdr_token', authToken);
   };
 
+  // LOGOUT HANDLER
   const handleLogoutConfirm = () => {
       localStorage.removeItem('rdr_user');
+      localStorage.removeItem('rdr_token');
       setIsLoggedIn(false);
       setCurrentUser(null);
+      setToken(null);
       setShowLogoutModal(false);
+  };
+
+  // --- HELPER FETCH WITH AUTH ---
+  const authFetch = async (url: string, options: RequestInit = {}) => {
+      if (!token) return null;
+      
+      const headers = {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`
+      };
+
+      try {
+          const response = await fetch(url, { ...options, headers });
+          
+          if (response.status === 401 || response.status === 403) {
+              handleLogoutConfirm(); // Token Expired
+              return null;
+          }
+          
+          return response;
+      } catch (e) {
+          console.error("Fetch Error:", e);
+          return null;
+      }
   };
 
   // --- APP SETTINGS STATE ---
@@ -100,15 +129,14 @@ const App: React.FC = () => {
   const [reimbursements, setReimbursements] = useState<Reimbursement[]>([]);
 
   const safeFetchJson = async (url: string) => {
-    try {
-      const response = await fetch(url);
-      const text = await response.text();
-      try { return JSON.parse(text); } catch (e) { return null; }
-    } catch (e) { return null; }
+    const response = await authFetch(url);
+    if (!response) return null;
+    const text = await response.text();
+    try { return JSON.parse(text); } catch (e) { return null; }
   };
 
   useEffect(() => {
-    if (isLoggedIn && isDbConnected) {
+    if (isLoggedIn && isDbConnected && token) {
         const fetchData = async () => {
         const txData = await safeFetchJson('/api/transactions');
         if (Array.isArray(txData)) setTransactions(txData);
@@ -117,57 +145,59 @@ const App: React.FC = () => {
         };
         fetchData();
     }
-  }, [isLoggedIn, isDbConnected]);
+  }, [isLoggedIn, isDbConnected, token]);
 
   // --- TRANSACTION HANDLERS ---
   const handleAddTransaction = async (transaction: Transaction) => {
     setTransactions(prev => [transaction, ...prev]);
-    await fetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(transaction) });
+    await authFetch('/api/transactions', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(transaction) });
   };
 
   const handleDeleteTransaction = async (id: string) => {
     setTransactions(prev => prev.filter(t => t.id !== id));
-    await fetch(`/api/transactions/${id}`, { method: 'DELETE' });
+    await authFetch(`/api/transactions/${id}`, { method: 'DELETE' });
   };
 
   const handleUpdateTransaction = async (transaction: Transaction) => {
     setTransactions(prev => prev.map(t => t.id === transaction.id ? transaction : t));
-    await fetch(`/api/transactions/${transaction.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(transaction) });
+    await authFetch(`/api/transactions/${transaction.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(transaction) });
   };
 
   // --- REIMBURSEMENT HANDLERS ---
   const handleAddReimbursement = async (reimbursement: Reimbursement) => {
     setReimbursements(prev => [reimbursement, ...prev]);
-    await fetch('/api/reimbursements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reimbursement) });
+    await authFetch('/api/reimbursements', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reimbursement) });
   };
 
   const handleDeleteReimbursement = async (id: string) => {
     setReimbursements(prev => prev.filter(r => r.id !== id));
-    await fetch(`/api/reimbursements/${id}`, { method: 'DELETE' });
+    await authFetch(`/api/reimbursements/${id}`, { method: 'DELETE' });
   };
 
   const handleUpdateReimbursementDetails = async (reimbursement: Reimbursement) => {
     setReimbursements(prev => prev.map(r => r.id === reimbursement.id ? reimbursement : r));
-    await fetch(`/api/reimbursements/${reimbursement.id}/details`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reimbursement) });
+    await authFetch(`/api/reimbursements/${reimbursement.id}/details`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reimbursement) });
   };
 
   const handleUpdateReimbursementStatus = async (updatedReimb: Reimbursement) => {
     setReimbursements(prev => prev.map(r => r.id === updatedReimb.id ? updatedReimb : r));
-    await fetch(`/api/reimbursements/${updatedReimb.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: updatedReimb.status, rejectionReason: updatedReimb.rejectionReason }) });
+    await authFetch(`/api/reimbursements/${updatedReimb.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: updatedReimb.status, rejectionReason: updatedReimb.rejectionReason }) });
   };
 
   const renderContent = () => {
+    const commonProps = { authToken: token };
+
     switch (activePage) {
       case 'DASHBOARD': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="ALL" />;
       case 'STAT_EXPENSE': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="EXPENSE" />;
-      case 'ADD_EXPENSE': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} />;
-      case 'REIMBURSE': return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onDeleteReimbursement={handleDeleteReimbursement} onUpdateReimbursementDetails={handleUpdateReimbursementDetails} onUpdateReimbursement={handleUpdateReimbursementStatus} categories={appSettings.categories} />;
+      case 'ADD_EXPENSE': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} {...commonProps} />;
+      case 'REIMBURSE': return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onDeleteReimbursement={handleDeleteReimbursement} onUpdateReimbursementDetails={handleUpdateReimbursementDetails} onUpdateReimbursement={handleUpdateReimbursementStatus} categories={appSettings.categories} {...commonProps} />;
       case 'REPORT_EXPENSE': return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PENGELUARAN" categories={appSettings.categories} />;
-      case 'ADD_INCOME': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PEMASUKAN" filterType="PEMASUKAN" initialView="LIST" categories={appSettings.categories} />;
+      case 'ADD_INCOME': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PEMASUKAN" filterType="PEMASUKAN" initialView="LIST" categories={appSettings.categories} {...commonProps} />;
       case 'STAT_INCOME': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="INCOME" />;
-      case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} />;
+      case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} {...commonProps} />;
       case 'REPORT': return <Report transactions={transactions} reimbursements={reimbursements} categories={appSettings.categories} />;
-      case 'SETTINGS': return <Settings settings={appSettings} onUpdateSettings={handleUpdateSettings} />;
+      case 'SETTINGS': return <Settings settings={appSettings} onUpdateSettings={handleUpdateSettings} {...commonProps} />;
       default: return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} />;
     }
   };
@@ -178,42 +208,26 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans">
-      
-      {/* 1. Header (Fixed Top) */}
       <Header 
         user={currentUser} 
         onLogoutClick={() => setShowLogoutModal(true)} 
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
         isDbConnected={isDbConnected}
       />
-
-      {/* 2. Main Layout (Below Header) */}
       <div className="flex flex-1 pt-16 overflow-hidden">
-        
-        {/* Sidebar */}
-        <Sidebar 
-          activePage={activePage} 
-          setActivePage={setActivePage} 
-          isOpen={isSidebarOpen}
-          setIsOpen={setIsSidebarOpen}
-        />
-
-        {/* Content Area */}
+        <Sidebar activePage={activePage} setActivePage={setActivePage} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />
         <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
             <main className="flex-1 overflow-y-auto p-4 md:p-8 scrollbar-thin">
                 <div className="max-w-7xl mx-auto">
                     {renderContent()}
                 </div>
             </main>
-            
-            {/* Footer Static at Bottom (Outside Main Scroll Area) */}
             <div className="shrink-0 z-20">
               <Footer />
             </div>
         </div>
       </div>
 
-      {/* Logout Modal */}
       {showLogoutModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4 animate-fade-in">
           <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
@@ -223,18 +237,8 @@ const App: React.FC = () => {
             <h3 className="text-xl font-bold text-slate-800 mb-2">Konfirmasi Keluar</h3>
             <p className="text-slate-500 mb-6">Apakah Anda yakin ingin keluar dari sistem?</p>
             <div className="flex gap-3 justify-center">
-              <button 
-                onClick={() => setShowLogoutModal(false)}
-                className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors"
-              >
-                Batal
-              </button>
-              <button 
-                onClick={handleLogoutConfirm}
-                className="px-5 py-2.5 rounded-xl bg-rose-600 text-white font-medium hover:bg-rose-700 shadow-md shadow-rose-200 transition-colors"
-              >
-                Ya, Keluar
-              </button>
+              <button onClick={() => setShowLogoutModal(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors">Batal</button>
+              <button onClick={handleLogoutConfirm} className="px-5 py-2.5 rounded-xl bg-rose-600 text-white font-medium hover:bg-rose-700 shadow-md shadow-rose-200 transition-colors">Ya, Keluar</button>
             </div>
           </div>
         </div>

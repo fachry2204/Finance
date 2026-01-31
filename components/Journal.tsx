@@ -10,9 +10,10 @@ interface JournalProps {
   onDeleteTransaction: (id: string) => void;
   transactions: Transaction[];
   defaultType?: TransactionType;
-  filterType?: TransactionType; // New prop to filter list view
+  filterType?: TransactionType;
   initialView?: 'LIST' | 'FORM';
-  categories: string[]; // List of categories for dropdown
+  categories: string[];
+  authToken: string | null;
 }
 
 const Journal: React.FC<JournalProps> = ({ 
@@ -23,7 +24,8 @@ const Journal: React.FC<JournalProps> = ({
   defaultType = 'PENGELUARAN',
   filterType,
   initialView = 'LIST',
-  categories
+  categories,
+  authToken
 }) => {
   const [view, setView] = useState<'LIST' | 'FORM'>(initialView);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -119,11 +121,18 @@ const Journal: React.FC<JournalProps> = ({
   };
 
   const uploadFile = async (file: File): Promise<string> => {
+    if (!authToken) {
+      alert("Sesi habis. Silakan login ulang.");
+      return '';
+    }
     const formData = new FormData();
     formData.append('file', file);
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',
+        headers: {
+           'Authorization': `Bearer ${authToken}`
+        },
         body: formData
       });
       const data = await res.json();

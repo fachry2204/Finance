@@ -3,7 +3,7 @@ import React, { useState } from 'react';
 import { Lock, User, Database, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface LoginProps {
-  onLogin: (user: any) => void;
+  onLogin: (user: any, token: string) => void;
   isDbConnected?: boolean;
 }
 
@@ -29,8 +29,8 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDbConnected = true }) => {
       
       const data = await res.json();
       
-      if (data.success) {
-        onLogin(data.user);
+      if (data.success && data.token) {
+        onLogin(data.user, data.token);
       } else {
         setError(data.message || 'Login gagal');
       }
