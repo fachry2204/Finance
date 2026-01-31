@@ -26,7 +26,7 @@ const App: React.FC = () => {
   const [activePage, setActivePage] = useState<PageView>('DASHBOARD');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   
-  // Check LocalStorage for Persisted Login
+  // Check LocalStorage for Persisted Login (Session Only)
   useEffect(() => {
       const savedUser = localStorage.getItem('rdr_user');
       const savedToken = localStorage.getItem('rdr_token');
@@ -109,20 +109,12 @@ const App: React.FC = () => {
       }
   };
 
-  // --- APP SETTINGS STATE ---
-  const [appSettings, setAppSettings] = useState<AppSettings>(() => {
-    const saved = localStorage.getItem('appSettings');
-    if (saved) return JSON.parse(saved);
-    return {
-      categories: ['Operasional', 'Transportasi', 'Makan & Minum', 'ATK', 'Marketing', 'Gaji', 'Maintenance', 'Project Alpha'],
-      database: { host: '', user: '', password: '', name: '', port: '3306', isConnected: false },
-      drive: { isConnected: false, selectedFolderId: '', selectedFolderName: '', autoUpload: false }
-    };
+  // --- APP SETTINGS STATE (No LocalStorage) ---
+  const [appSettings, setAppSettings] = useState<AppSettings>({
+    categories: [], // Loaded from DB
+    database: { host: '', user: '', password: '', name: '', port: '3306', isConnected: false },
+    drive: { isConnected: false, selectedFolderId: '', selectedFolderName: '', autoUpload: false }
   });
-
-  useEffect(() => {
-    localStorage.setItem('appSettings', JSON.stringify(appSettings));
-  }, [appSettings]);
 
   const handleUpdateSettings = (newSettings: AppSettings) => setAppSettings(newSettings);
 
@@ -140,16 +132,26 @@ const App: React.FC = () => {
   useEffect(() => {
     if (isLoggedIn && isDbConnected && token && currentUser?.role !== 'employee') {
         const fetchData = async () => {
-        const txData = await safeFetchJson('/api/transactions');
-        if (Array.isArray(txData)) setTransactions(txData);
-        const rmData = await safeFetchJson('/api/reimbursements');
-        if (Array.isArray(rmData)) setReimbursements(rmData);
-        
-        // Fetch Categories from DB to sync
-        const catData = await safeFetchJson('/api/categories');
-        if (Array.isArray(catData) && catData.length > 0) {
-            setAppSettings(prev => ({ ...prev, categories: catData }));
-        }
+          // 1. Transactions
+          const txData = await safeFetchJson('/api/transactions');
+          if (Array.isArray(txData)) setTransactions(txData);
+          
+          // 2. Reimbursements
+          const rmData = await safeFetchJson('/api/reimbursements');
+          if (Array.isArray(rmData)) setReimbursements(rmData);
+          
+          // 3. Categories from DB (Critical for Sync)
+          const catData = await safeFetchJson('/api/categories');
+          
+          // 4. Other Settings from DB
+          const settingsData = await safeFetchJson('/api/settings');
+
+          setAppSettings(prev => ({ 
+            ...prev, 
+            categories: Array.isArray(catData) ? catData : [],
+            drive: settingsData?.drive || prev.drive,
+            database: { ...prev.database, isConnected: true } 
+          }));
         };
         fetchData();
     }

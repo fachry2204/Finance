@@ -72,6 +72,11 @@ CREATE TABLE IF NOT EXISTS employees (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS settings (
+    setting_key VARCHAR(50) PRIMARY KEY,
+    setting_value TEXT
+);
+
 -- Seed Categories
 INSERT IGNORE INTO categories (name) VALUES 
 ('Operasional'), ('Transportasi'), ('Makan & Minum'), ('ATK'), ('Marketing'), ('Gaji'), ('Maintenance'), ('Project Alpha');

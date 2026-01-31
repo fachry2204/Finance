@@ -66,8 +66,6 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
           const data = await res.json();
           if (!data.success) {
              alert(data.message || 'Gagal menambahkan kategori ke server');
-             // Don't return here, maybe still update local if backend failed? 
-             // Ideally we should stop. But let's stop to be safe.
              setCategoryLoading(false);
              return;
           }
@@ -79,6 +77,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
        setCategoryLoading(false);
     }
 
+    // Update local state immediately after success
     onUpdateSettings({
       ...settings,
       categories: [...settings.categories, catName]

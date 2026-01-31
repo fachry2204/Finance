@@ -126,7 +126,6 @@ const ensureAdminUser = async () => {
 const ensureEmployeesTable = async () => {
     if (!pool) return;
     try {
-        // Force check or create table if schema.sql was missed
         await pool.query(`
             CREATE TABLE IF NOT EXISTS employees (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -232,12 +231,11 @@ app.post('/api/login', async (req, res) => {
             const token = jwt.sign({ id: emp.id, username: emp.username, role: 'employee', name: emp.name }, JWT_SECRET, { expiresIn: '24h' });
             console.log(`[LOGIN SUCCESS] Employee: ${username}`);
             
-            // Standardize object for frontend
             const userObj = {
                 id: emp.id,
                 username: emp.username,
                 role: 'employee',
-                details: emp // Extra details for employee dashboard
+                details: emp 
             };
             
             return res.json({ success: true, user: userObj, token: token });
@@ -249,6 +247,42 @@ app.post('/api/login', async (req, res) => {
     } catch (error) {
         console.error(`[LOGIN ERROR]`, error);
         res.status(500).json({ success: false, message: 'Server error: ' + error.message });
+    }
+});
+
+// --- SETTINGS API (NEW) ---
+app.get('/api/settings', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    try {
+        const [rows] = await pool.query('SELECT * FROM settings');
+        const settings = {};
+        rows.forEach(row => {
+            try {
+                settings[row.setting_key] = JSON.parse(row.setting_value);
+            } catch (e) {
+                settings[row.setting_key] = row.setting_value;
+            }
+        });
+        res.json(settings);
+    } catch (error) {
+        console.error('[API ERROR] Fetch settings failed:', error);
+        res.status(500).json({ message: 'Failed to fetch settings' });
+    }
+});
+
+app.post('/api/settings', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { key, value } = req.body;
+    try {
+        const stringValue = typeof value === 'object' ? JSON.stringify(value) : value;
+        await pool.query(
+            'INSERT INTO settings (setting_key, setting_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE setting_value = ?',
+            [key, stringValue, stringValue]
+        );
+        res.json({ success: true, message: 'Settings saved' });
+    } catch (error) {
+        console.error('[API ERROR] Save setting failed:', error);
+        res.status(500).json({ success: false, message: 'Failed to save setting' });
     }
 });
 
@@ -326,9 +360,7 @@ app.delete('/api/users/:id', authenticateToken, async (req, res) => {
 app.get('/api/employees', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     try {
-        console.log(`[API] Fetching employees...`);
         const [rows] = await pool.query('SELECT id, name, position, phone, email, username FROM employees ORDER BY name ASC');
-        console.log(`[API] Found ${rows.length} employees.`);
         res.json(rows);
     } catch (error) {
         console.error('[API ERROR] Fetch employees failed:', error);
@@ -339,15 +371,12 @@ app.get('/api/employees', authenticateToken, async (req, res) => {
 app.post('/api/employees', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     const { name, position, phone, email, username, password } = req.body;
-    console.log(`[API] Adding employee: ${username}`);
-
     try {
         const hashedPassword = hashPassword(password);
         await pool.query(
             'INSERT INTO employees (name, position, phone, email, username, password) VALUES (?, ?, ?, ?, ?, ?)',
             [name, position, phone, email, username, hashedPassword]
         );
-        console.log(`[API] Employee added: ${username}`);
         res.json({ success: true, message: 'Pegawai berhasil ditambahkan' });
     } catch (error) {
         console.error('[API ERROR] Add employee failed:', error);
