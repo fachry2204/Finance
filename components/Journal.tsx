@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, ExpenseType, ItemDetail } from '../types';
 import { generateId, formatCurrency, formatDate } from '../utils';
-import { Plus, Trash2, Save, UploadCloud, FileText, X, Calendar, Tag, File, Pencil, Check } from 'lucide-react';
+import { Plus, Trash2, Save, UploadCloud, FileText, X, Calendar, Tag, File, Pencil, Check, AlertCircle } from 'lucide-react';
 
 interface JournalProps {
   onAddTransaction: (transaction: Transaction) => void;
@@ -133,10 +133,21 @@ const Journal: React.FC<JournalProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // --- AUTOSAVE LOGIC ---
+    // Jika masih ada item yang diedit, kita cek apakah valid
     if (editingItemId) {
-      alert("Mohon simpan (klik centang) pada item yang sedang diedit terlebih dahulu.");
-      return;
+       const itemBeingEdited = items.find(i => i.id === editingItemId);
+       if (itemBeingEdited) {
+          // Jika nama kosong atau qty 0, baru kita block
+          if (!itemBeingEdited.name.trim() || itemBeingEdited.qty <= 0) {
+             alert("Mohon lengkapi Nama Item dan Qty pada baris yang sedang diedit.");
+             return;
+          }
+          // Jika valid, kita biarkan lanjut (otomatis dianggap save)
+       }
     }
+    
     if (!category || !activityName || items.length === 0) {
       alert("Mohon lengkapi data wajib dan minimal 1 item.");
       return;
@@ -664,12 +675,24 @@ const Journal: React.FC<JournalProps> = ({
           <button className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors" onClick={() => setPreviewImage(null)}>
             <X size={32} />
           </button>
-          <img 
-            src={previewImage} 
-            alt="Preview" 
-            className="max-w-full max-h-[90vh] rounded-lg shadow-2xl object-contain" 
-            onClick={(e) => e.stopPropagation()} 
-          />
+          <div className="relative" onClick={(e) => e.stopPropagation()}>
+             <img 
+              src={previewImage} 
+              alt="Bukti Transaksi" 
+              className="max-w-full max-h-[85vh] rounded-lg shadow-2xl object-contain bg-white"
+              onError={(e) => {
+                 const target = e.target as HTMLImageElement;
+                 target.onerror = null;
+                 target.style.display = 'none';
+                 target.nextElementSibling?.classList.remove('hidden');
+              }}
+            />
+            <div className="hidden flex flex-col items-center justify-center p-10 bg-white rounded-lg shadow-xl text-slate-500 min-w-[300px] min-h-[200px]">
+                <AlertCircle size={48} className="text-rose-400 mb-3" />
+                <p className="font-medium text-lg text-slate-700">Gambar Tidak Ditemukan</p>
+                <p className="text-sm mt-1">File mungkin telah dihapus atau path salah.</p>
+            </div>
+          </div>
         </div>
       )}
     </div>

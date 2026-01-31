@@ -106,10 +106,19 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // --- AUTOSAVE LOGIC ---
     if (editingItemId) {
-      alert("Mohon simpan (klik centang) pada item yang sedang diedit terlebih dahulu.");
-      return;
+      const itemBeingEdited = items.find(i => i.id === editingItemId);
+      if (itemBeingEdited) {
+         if (!itemBeingEdited.name.trim() || itemBeingEdited.qty <= 0) {
+            alert("Mohon lengkapi Nama Item dan Qty pada baris yang sedang diedit.");
+            return;
+         }
+         // Valid, proceed as if saved
+      }
     }
+
     if (items.length === 0) return alert("Minimal 1 item reimburse.");
     if (!category) return alert("Silakan pilih kategori.");
 

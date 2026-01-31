@@ -46,8 +46,9 @@ const hashPassword = (password) => {
 // --- FILE UPLOAD STORAGE CONFIGURATION ---
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        // Simpan di folder public/uploads agar bisa diakses langsung via URL
-        const uploadDir = path.join(__dirname, 'public', 'uploads');
+        // Simpan di folder uploads (sejajar dengan public, bukan di dalamnya)
+        // Agar tidak terhapus saat build frontend
+        const uploadDir = path.join(__dirname, 'uploads');
         if (!fs.existsSync(uploadDir)) {
             fs.mkdirSync(uploadDir, { recursive: true });
         }
@@ -309,6 +310,11 @@ app.put('/api/reimbursements/:id', async (req, res) => {
 });
 
 // --- SERVE STATIC FRONTEND & UPLOADS ---
+
+// 1. Serve Uploads (Explicit Route for Persistence)
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// 2. Serve Frontend
 const publicPath = path.join(__dirname, 'public');
 
 if (fs.existsSync(publicPath)) {
