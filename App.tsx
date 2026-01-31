@@ -9,6 +9,8 @@ import ReimbursementPage from './components/Reimbursement';
 import Report from './components/Report';
 import Settings from './components/Settings';
 import Login from './components/Login';
+import EmployeeManager from './components/EmployeeManager';
+import EmployeeDashboard from './components/EmployeeDashboard';
 import { Transaction, Reimbursement, PageView, AppSettings, User } from './types';
 import { AlertTriangle } from 'lucide-react';
 
@@ -136,7 +138,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isLoggedIn && isDbConnected && token) {
+    if (isLoggedIn && isDbConnected && token && currentUser?.role !== 'employee') {
         const fetchData = async () => {
         const txData = await safeFetchJson('/api/transactions');
         if (Array.isArray(txData)) setTransactions(txData);
@@ -145,7 +147,7 @@ const App: React.FC = () => {
         };
         fetchData();
     }
-  }, [isLoggedIn, isDbConnected, token]);
+  }, [isLoggedIn, isDbConnected, token, currentUser]);
 
   // --- TRANSACTION HANDLERS ---
   const handleAddTransaction = async (transaction: Transaction) => {
@@ -197,15 +199,43 @@ const App: React.FC = () => {
       case 'STAT_INCOME': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="INCOME" />;
       case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} {...commonProps} />;
       case 'REPORT': return <Report transactions={transactions} reimbursements={reimbursements} categories={appSettings.categories} />;
+      case 'EMPLOYEES': return <EmployeeManager {...commonProps} />;
       case 'SETTINGS': return <Settings settings={appSettings} onUpdateSettings={handleUpdateSettings} {...commonProps} />;
       default: return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} />;
     }
   };
 
+  // --- RENDER LOGIC ---
+
   if (!isLoggedIn) {
       return <Login onLogin={handleLogin} isDbConnected={isDbConnected} />;
   }
 
+  // IF ROLE IS EMPLOYEE, SHOW MOBILE DASHBOARD
+  if (currentUser?.role === 'employee') {
+      return (
+          <>
+            <EmployeeDashboard user={currentUser} onLogout={() => setShowLogoutModal(true)} />
+             {showLogoutModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 backdrop-blur-sm p-4 animate-fade-in">
+                <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full p-6 text-center">
+                    <div className="w-16 h-16 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-4 text-rose-600">
+                    <AlertTriangle size={32} />
+                    </div>
+                    <h3 className="text-xl font-bold text-slate-800 mb-2">Konfirmasi Keluar</h3>
+                    <p className="text-slate-500 mb-6">Anda yakin ingin keluar?</p>
+                    <div className="flex gap-3 justify-center">
+                    <button onClick={() => setShowLogoutModal(false)} className="px-5 py-2.5 rounded-xl border border-slate-200 text-slate-600 font-medium hover:bg-slate-50 transition-colors">Batal</button>
+                    <button onClick={handleLogoutConfirm} className="px-5 py-2.5 rounded-xl bg-rose-600 text-white font-medium hover:bg-rose-700 shadow-md shadow-rose-200 transition-colors">Keluar</button>
+                    </div>
+                </div>
+                </div>
+            )}
+          </>
+      );
+  }
+
+  // DEFAULT ADMIN VIEW
   return (
     <div className="flex flex-col h-screen bg-slate-50 text-slate-900 font-sans">
       <Header 

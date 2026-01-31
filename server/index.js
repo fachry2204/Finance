@@ -179,7 +179,7 @@ app.get('/api/test-db', async (req, res) => {
     }
 });
 
-// Login Route (Generates Token)
+// Login Route (Supports Users & Employees)
 app.post('/api/login', async (req, res) => {
     if (!pool) return res.status(500).json({ success: false, message: 'DB not connected' });
     const { username, password } = req.body;
@@ -188,25 +188,46 @@ app.post('/api/login', async (req, res) => {
     
     try {
         const hashedPassword = hashPassword(password);
-        const [rows] = await pool.query('SELECT id, username, role FROM users WHERE username = ? AND password = ?', [username, hashedPassword]);
         
-        if (rows.length > 0) {
-            const user = rows[0];
+        // 1. Cek Tabel Users (Admin)
+        const [users] = await pool.query('SELECT id, username, role FROM users WHERE username = ? AND password = ?', [username, hashedPassword]);
+        
+        if (users.length > 0) {
+            const user = users[0];
             const token = jwt.sign({ id: user.id, username: user.username, role: user.role }, JWT_SECRET, { expiresIn: '24h' });
-            console.log(`[LOGIN SUCCESS] User: ${username}`);
-            res.json({ success: true, user: user, token: token });
-        } else {
-            console.log(`[LOGIN FAILED] Invalid credentials for: ${username}`);
-            res.status(401).json({ success: false, message: 'Username atau password salah' });
+            console.log(`[LOGIN SUCCESS] Admin: ${username}`);
+            return res.json({ success: true, user: user, token: token });
+        } 
+
+        // 2. Cek Tabel Employees (Pegawai)
+        const [employees] = await pool.query('SELECT id, username, name, position, email, phone FROM employees WHERE username = ? AND password = ?', [username, hashedPassword]);
+        
+        if (employees.length > 0) {
+            const emp = employees[0];
+            const token = jwt.sign({ id: emp.id, username: emp.username, role: 'employee', name: emp.name }, JWT_SECRET, { expiresIn: '24h' });
+            console.log(`[LOGIN SUCCESS] Employee: ${username}`);
+            
+            // Standardize object for frontend
+            const userObj = {
+                id: emp.id,
+                username: emp.username,
+                role: 'employee',
+                details: emp // Extra details for employee dashboard
+            };
+            
+            return res.json({ success: true, user: userObj, token: token });
         }
+
+        console.log(`[LOGIN FAILED] Invalid credentials for: ${username}`);
+        res.status(401).json({ success: false, message: 'Username atau password salah' });
+
     } catch (error) {
         console.error(`[LOGIN ERROR]`, error);
         res.status(500).json({ success: false, message: 'Server error: ' + error.message });
     }
 });
 
-// --- PROTECTED ROUTES (Require Token) ---
-
+// --- USERS API (Admin Only) ---
 app.get('/api/users', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     try {
@@ -237,6 +258,68 @@ app.delete('/api/users/:id', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'User deleted' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Failed to delete user' });
+    }
+});
+
+// --- EMPLOYEES API ---
+app.get('/api/employees', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    try {
+        const [rows] = await pool.query('SELECT id, name, position, phone, email, username FROM employees ORDER BY name ASC');
+        res.json(rows);
+    } catch (error) {
+        res.status(500).json({ message: 'Failed to fetch employees' });
+    }
+});
+
+app.post('/api/employees', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { name, position, phone, email, username, password } = req.body;
+    try {
+        const hashedPassword = hashPassword(password);
+        await pool.query(
+            'INSERT INTO employees (name, position, phone, email, username, password) VALUES (?, ?, ?, ?, ?, ?)',
+            [name, position, phone, email, username, hashedPassword]
+        );
+        res.json({ success: true, message: 'Pegawai berhasil ditambahkan' });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ success: false, message: 'Gagal menambah pegawai. Username/Email mungkin sudah ada.' });
+    }
+});
+
+app.put('/api/employees/:id', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { id } = req.params;
+    const { name, position, phone, email, username, password } = req.body;
+    
+    try {
+        if (password) {
+            const hashedPassword = hashPassword(password);
+            await pool.query(
+                'UPDATE employees SET name=?, position=?, phone=?, email=?, username=?, password=? WHERE id=?',
+                [name, position, phone, email, username, hashedPassword, id]
+            );
+        } else {
+            await pool.query(
+                'UPDATE employees SET name=?, position=?, phone=?, email=?, username=? WHERE id=?',
+                [name, position, phone, email, username, id]
+            );
+        }
+        res.json({ success: true, message: 'Data pegawai diperbarui' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Gagal update pegawai.' });
+    }
+});
+
+app.delete('/api/employees/:id', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM employees WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Pegawai dihapus' });
+    } catch (error) {
+        res.status(500).json({ success: false, message: 'Gagal menghapus pegawai' });
     }
 });
 

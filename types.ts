@@ -53,7 +53,8 @@ export type PageView =
   | 'STAT_INCOME' 
   | 'JOURNAL_LIST' 
   | 'REPORT'
-  | 'SETTINGS'; // New Page
+  | 'EMPLOYEES' // New Page
+  | 'SETTINGS';
 
 // --- NEW CONFIGURATION TYPES ---
 
@@ -80,8 +81,19 @@ export interface AppSettings {
   drive: GoogleDriveConfig;
 }
 
+export interface Employee {
+  id: number;
+  name: string;
+  position: string;
+  phone: string;
+  email: string;
+  username: string;
+  password?: string;
+}
+
 export interface User {
   id: number;
   username: string;
   role: string;
+  details?: Employee; // For Employee Role
 }

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { LayoutDashboard, Receipt, FileText, X, PlusCircle, PieChart, Wallet, List, Settings as SettingsIcon } from 'lucide-react';
+import { LayoutDashboard, Receipt, FileText, X, PlusCircle, PieChart, Wallet, List, Settings as SettingsIcon, Users } from 'lucide-react';
 import { PageView } from '../types';
 
 interface SidebarProps {
@@ -40,6 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
     {
       title: 'Lainnya',
       items: [
+        { id: 'EMPLOYEES' as PageView, label: 'Data Pegawai', icon: Users },
         { id: 'SETTINGS' as PageView, label: 'Pengaturan', icon: SettingsIcon },
       ]
     }
@@ -56,7 +57,6 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
       )}
 
       {/* Sidebar Container */}
-      {/* Adjusted top position to account for 64px header. Changed bg-slate-900 to bg-white for light theme */}
       <div className={`fixed inset-y-0 left-0 z-50 w-64 bg-white border-r border-slate-200 text-slate-700 transform transition-transform duration-300 ease-in-out md:translate-x-0 md:static md:inset-0 ${isOpen ? 'translate-x-0' : '-translate-x-full'} flex flex-col pt-0`}>
         
         {/* Mobile Close Button Header inside Sidebar */}
