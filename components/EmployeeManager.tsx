@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Pencil, Search, User, Mail, Phone, Briefcase, Lock, Save, X } from 'lucide-react';
+import { Plus, Trash2, Pencil, Search, User, Mail, Phone, Briefcase, Lock, Save, X, RefreshCw, AlertCircle } from 'lucide-react';
 import { Employee } from '../types';
 
 interface EmployeeManagerProps {
@@ -13,6 +13,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
+  const [fetchError, setFetchError] = useState<string | null>(null);
 
   // Form State
   const [currentId, setCurrentId] = useState<number | null>(null);
@@ -28,14 +29,26 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
   }, [authToken]);
 
   const fetchEmployees = async () => {
+    setFetchError(null);
     try {
       const res = await fetch('/api/employees', {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
+
+      if (!res.ok) {
+         const text = await res.text();
+         throw new Error(`Server Error (${res.status}): ${text.substring(0, 100)}`);
+      }
+
       const data = await res.json();
-      if (Array.isArray(data)) setEmployees(data);
-    } catch (e) {
+      if (Array.isArray(data)) {
+        setEmployees(data);
+      } else {
+        setEmployees([]); // Fallback jika format salah
+      }
+    } catch (e: any) {
       console.error("Gagal load pegawai", e);
+      setFetchError(e.message || "Gagal memuat data pegawai.");
     }
   };
 
@@ -92,17 +105,32 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
         body: JSON.stringify(payload)
       });
 
+      // Cek apakah response OK (200-299)
+      if (!res.ok) {
+         // Coba ambil pesan error dari body (text atau json)
+         const text = await res.text();
+         try {
+            const json = JSON.parse(text);
+            throw new Error(json.message || `Gagal menyimpan (${res.status})`);
+         } catch (parseErr) {
+            // Jika bukan JSON (misal HTML error 500)
+            throw new Error(`Server Error: ${text.substring(0, 150)}...`);
+         }
+      }
+
       const data = await res.json();
 
       if (data.success) {
         fetchEmployees();
         setIsModalOpen(false);
         resetForm();
+        alert(isEditing ? "Data berhasil diperbarui" : "Pegawai berhasil ditambahkan");
       } else {
-        alert(data.message);
+        alert(data.message || "Gagal menyimpan data.");
       }
-    } catch (error) {
-      alert("Terjadi kesalahan sistem");
+    } catch (error: any) {
+      console.error("Submit Error:", error);
+      alert(error.message || "Terjadi kesalahan sistem saat menghubungi server.");
     } finally {
       setIsLoading(false);
     }
@@ -118,9 +146,13 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
         headers: { 'Authorization': `Bearer ${authToken}` }
       });
       const data = await res.json();
-      if (data.success) fetchEmployees();
+      if (data.success) {
+         fetchEmployees();
+      } else {
+         alert(data.message || "Gagal menghapus");
+      }
     } catch (e) {
-      alert("Gagal menghapus");
+      alert("Gagal menghubungi server untuk menghapus.");
     }
   };
 
@@ -144,6 +176,19 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
         </button>
       </div>
 
+      {/* Error Banner if Fetch Fails */}
+      {fetchError && (
+        <div className="bg-rose-50 border border-rose-200 text-rose-700 p-4 rounded-xl flex items-center justify-between">
+           <div className="flex items-center gap-2">
+             <AlertCircle size={20} />
+             <span>Error: {fetchError}</span>
+           </div>
+           <button onClick={fetchEmployees} className="text-sm font-bold underline hover:text-rose-900 flex items-center gap-1">
+             <RefreshCw size={14}/> Coba Lagi
+           </button>
+        </div>
+      )}
+
       {/* Search & Stats */}
       <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center gap-4">
          <div className="relative flex-1">
@@ -162,38 +207,45 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
       </div>
 
       {/* Grid Card View */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredEmployees.map((emp) => (
-          <div key={emp.id} className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-md border border-slate-100 dark:border-slate-700 group hover:border-blue-200 dark:hover:border-blue-800 transition-all">
-             <div className="flex justify-between items-start mb-4">
-                <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">
-                   {emp.name.charAt(0).toUpperCase()}
-                </div>
-                <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                   <button onClick={() => handleOpenEdit(emp)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded"><Pencil size={16}/></button>
-                   <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 size={16}/></button>
-                </div>
-             </div>
-             
-             <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-1">{emp.name}</h3>
-             <p className="text-blue-600 dark:text-blue-400 font-medium text-sm mb-4 flex items-center gap-1">
-               <Briefcase size={14} /> {emp.position}
-             </p>
-
-             <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-4">
-                <div className="flex items-center gap-2">
-                   <Phone size={14} className="text-slate-400" /> {emp.phone}
-                </div>
-                <div className="flex items-center gap-2">
-                   <Mail size={14} className="text-slate-400" /> {emp.email}
-                </div>
-                <div className="flex items-center gap-2">
-                   <User size={14} className="text-slate-400" /> Login: <span className="font-mono bg-slate-100 dark:bg-slate-900 px-1 rounded">{emp.username}</span>
-                </div>
-             </div>
+      {filteredEmployees.length === 0 && !fetchError ? (
+          <div className="text-center py-12 text-slate-400 bg-white dark:bg-slate-800 rounded-xl border border-dashed border-slate-200">
+             <User size={48} className="mx-auto mb-3 opacity-20" />
+             <p>Belum ada data pegawai.</p>
           </div>
-        ))}
-      </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEmployees.map((emp) => (
+            <div key={emp.id} className="bg-white dark:bg-slate-800 p-6 rounded-xl shadow-md border border-slate-100 dark:border-slate-700 group hover:border-blue-200 dark:hover:border-blue-800 transition-all">
+                <div className="flex justify-between items-start mb-4">
+                    <div className="w-12 h-12 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 flex items-center justify-center font-bold text-lg">
+                    {emp.name.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => handleOpenEdit(emp)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded"><Pencil size={16}/></button>
+                    <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 size={16}/></button>
+                    </div>
+                </div>
+                
+                <h3 className="font-bold text-lg text-slate-800 dark:text-white mb-1">{emp.name}</h3>
+                <p className="text-blue-600 dark:text-blue-400 font-medium text-sm mb-4 flex items-center gap-1">
+                <Briefcase size={14} /> {emp.position}
+                </p>
+
+                <div className="space-y-2 text-sm text-slate-600 dark:text-slate-400 border-t border-slate-100 dark:border-slate-700 pt-4">
+                    <div className="flex items-center gap-2">
+                    <Phone size={14} className="text-slate-400" /> {emp.phone}
+                    </div>
+                    <div className="flex items-center gap-2">
+                    <Mail size={14} className="text-slate-400" /> {emp.email}
+                    </div>
+                    <div className="flex items-center gap-2">
+                    <User size={14} className="text-slate-400" /> Login: <span className="font-mono bg-slate-100 dark:bg-slate-900 px-1 rounded">{emp.username}</span>
+                    </div>
+                </div>
+            </div>
+            ))}
+        </div>
+      )}
 
       {/* Modal Form */}
       {isModalOpen && (

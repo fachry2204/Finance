@@ -91,6 +91,9 @@ const initDatabase = async () => {
 
         // 5. Pastikan User Admin Ada (Fallback jika schema.sql gagal seed)
         await ensureAdminUser();
+        
+        // 6. Explicitly Ensure Employees Table Exists (Safety Check)
+        await ensureEmployeesTable();
 
     } catch (err) {
         console.error('\n===================================================');
@@ -119,6 +122,28 @@ const ensureAdminUser = async () => {
         console.error('[WARN] Gagal mengecek/membuat user admin:', error.message);
     }
 };
+
+const ensureEmployeesTable = async () => {
+    if (!pool) return;
+    try {
+        // Force check or create table if schema.sql was missed
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS employees (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL,
+                position VARCHAR(100),
+                phone VARCHAR(20),
+                email VARCHAR(100),
+                username VARCHAR(50) NOT NULL UNIQUE,
+                password VARCHAR(255) NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('[SUCCESS] Tabel employees terverifikasi.');
+    } catch (error) {
+        console.error('[WARN] Gagal verifikasi tabel employees:', error.message);
+    }
+}
 
 // Jalankan inisialisasi
 initDatabase();
@@ -265,26 +290,35 @@ app.delete('/api/users/:id', authenticateToken, async (req, res) => {
 app.get('/api/employees', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     try {
+        console.log(`[API] Fetching employees...`);
         const [rows] = await pool.query('SELECT id, name, position, phone, email, username FROM employees ORDER BY name ASC');
+        console.log(`[API] Found ${rows.length} employees.`);
         res.json(rows);
     } catch (error) {
-        res.status(500).json({ message: 'Failed to fetch employees' });
+        console.error('[API ERROR] Fetch employees failed:', error);
+        res.status(500).json({ message: 'Failed to fetch employees: ' + error.message });
     }
 });
 
 app.post('/api/employees', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     const { name, position, phone, email, username, password } = req.body;
+    console.log(`[API] Adding employee: ${username}`);
+
     try {
         const hashedPassword = hashPassword(password);
         await pool.query(
             'INSERT INTO employees (name, position, phone, email, username, password) VALUES (?, ?, ?, ?, ?, ?)',
             [name, position, phone, email, username, hashedPassword]
         );
+        console.log(`[API] Employee added: ${username}`);
         res.json({ success: true, message: 'Pegawai berhasil ditambahkan' });
     } catch (error) {
-        console.error(error);
-        res.status(500).json({ success: false, message: 'Gagal menambah pegawai. Username/Email mungkin sudah ada.' });
+        console.error('[API ERROR] Add employee failed:', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+             return res.status(400).json({ success: false, message: 'Username atau Email sudah terdaftar.' });
+        }
+        res.status(500).json({ success: false, message: 'Gagal menambah pegawai: ' + error.message });
     }
 });
 
@@ -308,7 +342,8 @@ app.put('/api/employees/:id', authenticateToken, async (req, res) => {
         }
         res.json({ success: true, message: 'Data pegawai diperbarui' });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Gagal update pegawai.' });
+        console.error('[API ERROR] Update employee failed:', error);
+        res.status(500).json({ success: false, message: 'Gagal update pegawai: ' + error.message });
     }
 });
 
@@ -319,7 +354,8 @@ app.delete('/api/employees/:id', authenticateToken, async (req, res) => {
         await pool.query('DELETE FROM employees WHERE id = ?', [id]);
         res.json({ success: true, message: 'Pegawai dihapus' });
     } catch (error) {
-        res.status(500).json({ success: false, message: 'Gagal menghapus pegawai' });
+         console.error('[API ERROR] Delete employee failed:', error);
+        res.status(500).json({ success: false, message: 'Gagal menghapus pegawai: ' + error.message });
     }
 });
 
