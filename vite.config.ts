@@ -29,5 +29,13 @@ export default defineConfig({
     // Build langsung ke dalam folder server/public
     outDir: 'server/public',
     emptyOutDir: true,
+    chunkSizeWarningLimit: 1000,
+    rollupOptions: {
+        output: {
+            manualChunks: {
+                vendor: ['react', 'react-dom', 'recharts', 'lucide-react'],
+            }
+        }
+    }
   }
 })
