@@ -8,7 +8,7 @@ interface LoginProps {
   connectionStatus?: ConnectionStatus;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, connectionStatus = 'CONNECTED' }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, connectionStatus = 'CHECKING' }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
@@ -33,10 +33,11 @@ const Login: React.FC<LoginProps> = ({ onLogin, connectionStatus = 'CONNECTED' }
           color: 'bg-rose-50 text-rose-700 border-rose-100', 
           dot: 'bg-rose-500' 
       };
+      case 'CHECKING':
       default: return { 
           text: 'Checking...', 
           color: 'bg-slate-50 text-slate-500 border-slate-100', 
-          dot: 'bg-slate-400' 
+          dot: 'bg-slate-400 animate-pulse' 
       };
     }
   };

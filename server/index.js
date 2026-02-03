@@ -75,6 +75,16 @@ const hashPassword = (password) => {
     return crypto.createHash('sha256').update(password).digest('hex');
 };
 
+// Helper: Wait for Pool Initialization
+const waitForPool = async (timeoutMs = 10000) => {
+    const start = Date.now();
+    while (!pool) {
+        if (Date.now() - start > timeoutMs) return false;
+        await new Promise(resolve => setTimeout(resolve, 500));
+    }
+    return true;
+};
+
 // --- INITIALIZE DATABASE AUTOMATICALLY ---
 const initDatabase = async () => {
     try {
@@ -226,6 +236,10 @@ const upload = multer({ storage: storage });
 // Public Route
 app.get('/api/test-db', async (req, res) => {
     res.setHeader('Content-Type', 'application/json');
+    
+    // Tunggu pool sebentar (max 5 detik) jika server baru start
+    await waitForPool(5000);
+
     if (!pool) return res.status(500).json({ status: 'error', message: 'Pool database belum terinisialisasi' });
     
     try {
@@ -241,6 +255,9 @@ app.get('/api/test-db', async (req, res) => {
 
 // Login Route (Supports Users & Employees)
 app.post('/api/login', async (req, res) => {
+    // Tunggu pool max 5 detik
+    await waitForPool(5000);
+
     if (!pool) return res.status(500).json({ success: false, message: 'Database Tidak Konek Hubungi Admin' });
     const { username, password } = req.body;
 

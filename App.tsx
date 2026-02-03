@@ -20,7 +20,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('CONNECTED');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('CHECKING');
 
   // App State
   const [activePage, setActivePage] = useState<PageView>('DASHBOARD');
