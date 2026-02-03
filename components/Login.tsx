@@ -130,14 +130,14 @@ const Login: React.FC<LoginProps> = ({ onLogin, connectionStatus = 'CONNECTED' }
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
                 placeholder="Masukkan password"
                 required
-                disabled={!isDbConnected}
+                disabled={!isConnected}
               />
             </div>
           </div>
 
           <button 
             type="submit" 
-            disabled={loading || !isDbConnected}
+            disabled={loading || !isConnected}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-semibold py-3 rounded-xl transition-all shadow-md hover:shadow-lg disabled:opacity-70 disabled:cursor-not-allowed"
           >
             {loading ? 'Memproses...' : 'Masuk Sistem'}
