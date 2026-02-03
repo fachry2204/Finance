@@ -24,14 +24,31 @@ app.use(cors());
 app.use(express.json());
 
 // --- SERVE STATIC FRONTEND (PRODUCTION MODE) ---
-// Pastikan folder 'dist' hasil build React ada di folder 'public' atau sejajar
-const distPath = path.join(__dirname, '../dist'); 
-// Atau jika di hosting strukturnya berbeda, sesuaikan path ini.
-// Di Plesk biasanya kita upload isi 'dist' ke folder 'public' atau 'httpdocs'
-// Tapi jika Node.js app serving static files:
+// Configured to serve from 'public' folder inside server directory (Vite build output)
+const distPath = path.join(__dirname, 'public'); 
+
 if (fs.existsSync(distPath)) {
     console.log('[INFO] Serving static files from:', distPath);
     app.use(express.static(distPath));
+    
+    // Handle SPA Routing: Send index.html for any unknown route
+    app.get('*', (req, res) => {
+        if (!req.path.startsWith('/api')) {
+            res.sendFile(path.join(distPath, 'index.html'));
+        }
+    });
+} else {
+    // Fallback check for 'dist' folder (legacy or local dev)
+    const legacyDistPath = path.join(__dirname, '../dist');
+    if (fs.existsSync(legacyDistPath)) {
+        console.log('[INFO] Serving static files from:', legacyDistPath);
+        app.use(express.static(legacyDistPath));
+        app.get('*', (req, res) => {
+            if (!req.path.startsWith('/api')) {
+                res.sendFile(path.join(legacyDistPath, 'index.html'));
+            }
+        });
+    }
 }
 
 // --- DATABASE CONNECTION CONFIGURATION ---

@@ -1,0 +1,16 @@
+
+<IfModule mod_rewrite.c>
+  RewriteEngine On
+  RewriteBase /
+  
+  # Jangan rewrite API, Auth, atau Uploads (biarkan Node.js menangani jika file tidak ada di root)
+  RewriteCond %{REQUEST_URI} ^/api [OR]
+  RewriteCond %{REQUEST_URI} ^/auth [OR]
+  RewriteCond %{REQUEST_URI} ^/uploads
+  RewriteRule ^ - [L]
+
+  # SPA Rewrite: Jika file tidak ada, arahkan ke index.html
+  RewriteCond %{REQUEST_FILENAME} !-f
+  RewriteCond %{REQUEST_FILENAME} !-d
+  RewriteRule . /index.html [L]
+</IfModule>
