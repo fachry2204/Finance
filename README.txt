@@ -12,7 +12,7 @@ CARA 1: BUILD DI LOKAL (Disarankan)
 6. Upload ISI dari folder `dist` tersebut ke dalam folder `httpdocs` di File Manager Plesk Anda.
 
 CARA 2: BUILD DI PLESK (Jika ada ekstensi Node.js)
-1. Upload semua file project ke folder di Plesk (misal: /rdr-finance).
+1. Upload semua file project ke folder di Plesk (misal: /dmasiv-finance).
 2. Masuk ke menu "Node.js" di Plesk.
 3. Klik "Enable Node.js".
 4. Klik tombol "Run NPM Install".

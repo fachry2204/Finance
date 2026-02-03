@@ -28,8 +28,8 @@ const App: React.FC = () => {
   
   // Check LocalStorage for Persisted Login (Session Only)
   useEffect(() => {
-      const savedUser = localStorage.getItem('rdr_user');
-      const savedToken = localStorage.getItem('rdr_token');
+      const savedUser = localStorage.getItem('dmasiv_user');
+      const savedToken = localStorage.getItem('dmasiv_token');
       if (savedUser && savedToken) {
           setCurrentUser(JSON.parse(savedUser));
           setToken(savedToken);
@@ -73,14 +73,14 @@ const App: React.FC = () => {
       setCurrentUser(user);
       setToken(authToken);
       setIsLoggedIn(true);
-      localStorage.setItem('rdr_user', JSON.stringify(user));
-      localStorage.setItem('rdr_token', authToken);
+      localStorage.setItem('dmasiv_user', JSON.stringify(user));
+      localStorage.setItem('dmasiv_token', authToken);
   };
 
   // LOGOUT HANDLER
   const handleLogoutConfirm = () => {
-      localStorage.removeItem('rdr_user');
-      localStorage.removeItem('rdr_token');
+      localStorage.removeItem('dmasiv_user');
+      localStorage.removeItem('dmasiv_token');
       setIsLoggedIn(false);
       setCurrentUser(null);
       setToken(null);

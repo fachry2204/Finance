@@ -85,4 +85,4 @@ INSERT IGNORE INTO categories (name) VALUES
 INSERT IGNORE INTO users (username, password, role) VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin');
 
 -- Seed Default Employee (User: pegawai, Pass: pegawai)
-INSERT IGNORE INTO employees (name, position, phone, email, username, password) VALUES ('Budi Santoso', 'Staff Operasional', '08123456789', 'budi@rdr.com', 'pegawai', '04784992524a87754b5dfd4d29a008c37d4529304193309a962a984485542289');
+INSERT IGNORE INTO employees (name, position, phone, email, username, password) VALUES ('Budi Santoso', 'Staff Operasional', '08123456789', 'budi@dmasiv.id', 'pegawai', '04784992524a87754b5dfd4d29a008c37d4529304193309a962a984485542289');

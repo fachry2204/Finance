@@ -19,11 +19,11 @@ const Header: React.FC<HeaderProps> = ({ user, onLogoutClick, toggleSidebar, isD
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <img 
-          src="https://ruangdimensirecords.com/img/logo.png" 
-          alt="RDR Finance" 
+          src="https://fin.dmasiv.id/img/logodmsv.png" 
+          alt="D'MASIV Finance" 
           className="h-10 w-auto object-contain"
         />
-        <span className="font-bold text-lg text-slate-800 tracking-tight hidden md:block">KEUANGAN <span className="text-blue-600">RDR</span></span>
+        <span className="font-bold text-lg text-slate-800 tracking-tight hidden md:block">KEUANGAN <span className="text-blue-600">D'MASIV</span></span>
       </div>
 
       <div className="flex items-center gap-4">

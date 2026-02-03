@@ -1,8 +1,8 @@
 
 {
-  "name": "rdr-finance-server",
+  "name": "dmasiv-finance-server",
   "version": "1.0.0",
-  "description": "Backend API for RDR Finance",
+  "description": "Backend API for D'MASIV Finance",
   "main": "index.js",
   "scripts": {
     "start": "node index.js",
