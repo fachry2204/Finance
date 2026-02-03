@@ -23,6 +23,17 @@ const JWT_SECRET = process.env.JWT_SECRET || 'rdr-secret-key-change-in-prod-999'
 app.use(cors());
 app.use(express.json());
 
+// --- SERVE STATIC FRONTEND (PRODUCTION MODE) ---
+// Pastikan folder 'dist' hasil build React ada di folder 'public' atau sejajar
+const distPath = path.join(__dirname, '../dist'); 
+// Atau jika di hosting strukturnya berbeda, sesuaikan path ini.
+// Di Plesk biasanya kita upload isi 'dist' ke folder 'public' atau 'httpdocs'
+// Tapi jika Node.js app serving static files:
+if (fs.existsSync(distPath)) {
+    console.log('[INFO] Serving static files from:', distPath);
+    app.use(express.static(distPath));
+}
+
 // --- DATABASE CONNECTION CONFIGURATION ---
 // PENTING: Gunakan 127.0.0.1, bukan localhost untuk menghindari isu IPv6 di Node.js
 const dbConfig = {
@@ -713,6 +724,21 @@ if (fs.existsSync(publicPath)) {
 } else {
     app.get('/', (req, res) => res.send('Server Running. Please run npm run build inside root directory.'));
 }
+
+// Catch-all route untuk React Router (Harus ditaruh paling bawah sebelum app.listen)
+app.get('*', (req, res) => {
+    // Abaikan request API
+    if (req.path.startsWith('/api')) {
+        return res.status(404).json({ message: 'API endpoint not found' });
+    }
+
+    const indexHtml = path.join(__dirname, '../dist', 'index.html');
+    if (fs.existsSync(indexHtml)) {
+        res.sendFile(indexHtml);
+    } else {
+        res.send('API Server is Running. Frontend build not found.');
+    }
+});
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
