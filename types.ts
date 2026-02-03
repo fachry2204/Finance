@@ -27,6 +27,8 @@ export interface Transaction {
 
 export type ReimbursementStatus = 'PENDING' | 'PROSES' | 'BERHASIL' | 'DITOLAK';
 
+export type ConnectionStatus = 'CONNECTED' | 'DB_ERROR' | 'SERVER_ERROR';
+
 export interface Reimbursement {
   id: string;
   date: string;

@@ -1,21 +1,51 @@
 
 import React, { useState } from 'react';
 import { Lock, User, Database, AlertCircle, RefreshCw } from 'lucide-react';
+import { ConnectionStatus } from '../types';
 
 interface LoginProps {
   onLogin: (user: any, token: string) => void;
-  isDbConnected?: boolean;
+  connectionStatus?: ConnectionStatus;
 }
 
-const Login: React.FC<LoginProps> = ({ onLogin, isDbConnected = true }) => {
+const Login: React.FC<LoginProps> = ({ onLogin, connectionStatus = 'CONNECTED' }) => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
+  const isConnected = connectionStatus === 'CONNECTED';
+
+  const getStatusConfig = () => {
+    switch (connectionStatus) {
+      case 'CONNECTED': return { 
+          text: 'DB Connected', 
+          color: 'bg-emerald-50 text-emerald-700 border-emerald-100', 
+          dot: 'bg-emerald-500 animate-pulse' 
+      };
+      case 'DB_ERROR': return { 
+          text: 'Database Tidak Konek Hubungi Admin', 
+          color: 'bg-orange-50 text-orange-700 border-orange-100', 
+          dot: 'bg-orange-500' 
+      };
+      case 'SERVER_ERROR': return { 
+          text: 'Node JS Mati', 
+          color: 'bg-rose-50 text-rose-700 border-rose-100', 
+          dot: 'bg-rose-500' 
+      };
+      default: return { 
+          text: 'Checking...', 
+          color: 'bg-slate-50 text-slate-500 border-slate-100', 
+          dot: 'bg-slate-400' 
+      };
+    }
+  };
+
+  const statusConfig = getStatusConfig();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!isDbConnected) return;
+    if (!isConnected) return;
 
     setLoading(true);
     setError('');
@@ -48,12 +78,12 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDbConnected = true }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
       
-      <div className={`bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transition-all duration-300 relative ${!isDbConnected ? 'filter blur-sm pointer-events-none' : ''}`}>
+      <div className={`bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transition-all duration-300 relative ${!isConnected ? 'filter blur-sm pointer-events-none' : ''}`}>
         
         {/* Database Status Indicator - Top Right of Login Form */}
-        <div className={`absolute top-4 right-4 z-10 inline-flex items-center gap-2 px-2 py-1 rounded-full text-[10px] font-medium border shadow-sm transition-all duration-300 ${isDbConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
-          <div className={`w-1.5 h-1.5 rounded-full ${isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
-          {isDbConnected ? 'DB Connected' : 'Database Tidak Konek Hubungi Admin'}
+        <div className={`absolute top-4 right-4 z-10 inline-flex items-center gap-2 px-2 py-1 rounded-full text-[10px] font-medium border shadow-sm transition-all duration-300 ${statusConfig.color}`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`}></div>
+          {statusConfig.text}
         </div>
 
         <div className="text-center mb-8">
@@ -84,7 +114,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDbConnected = true }) => {
                 className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
                 placeholder="Masukkan username"
                 required
-                disabled={!isDbConnected}
+                disabled={!isConnected}
               />
             </div>
           </div>

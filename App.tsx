@@ -11,7 +11,7 @@ import Settings from './components/Settings';
 import Login from './components/Login';
 import EmployeeManager from './components/EmployeeManager';
 import EmployeeDashboard from './components/EmployeeDashboard';
-import { Transaction, Reimbursement, PageView, AppSettings, User } from './types';
+import { Transaction, Reimbursement, PageView, AppSettings, User, ConnectionStatus } from './types';
 import { AlertTriangle } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -20,7 +20,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
-  const [isDbConnected, setIsDbConnected] = useState(true);
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('CONNECTED');
 
   // App State
   const [activePage, setActivePage] = useState<PageView>('DASHBOARD');
@@ -43,12 +43,15 @@ const App: React.FC = () => {
       const response = await fetch('/api/test-db');
       const data = await response.json();
       const isConnected = data.status === 'success';
-      // Force True agar popup tidak muncul
-      setIsDbConnected(true); 
+      
+      if (isConnected) {
+        setConnectionStatus('CONNECTED');
+      } else {
+        setConnectionStatus('DB_ERROR');
+      }
       return isConnected;
     } catch (e) {
-      // Force True agar popup tidak muncul
-      setIsDbConnected(true);
+      setConnectionStatus('SERVER_ERROR');
       return false;
     }
   };
@@ -132,7 +135,7 @@ const App: React.FC = () => {
   };
 
   useEffect(() => {
-    if (isLoggedIn && isDbConnected && token && currentUser?.role !== 'employee') {
+    if (isLoggedIn && connectionStatus === 'CONNECTED' && token && currentUser?.role !== 'employee') {
         const fetchData = async () => {
           // 1. Transactions
           const txData = await safeFetchJson('/api/transactions');
@@ -157,7 +160,7 @@ const App: React.FC = () => {
         };
         fetchData();
     }
-  }, [isLoggedIn, isDbConnected, token, currentUser]);
+  }, [isLoggedIn, connectionStatus, token, currentUser]);
 
   // --- TRANSACTION HANDLERS ---
   const handleAddTransaction = async (transaction: Transaction) => {
@@ -218,7 +221,7 @@ const App: React.FC = () => {
   // --- RENDER LOGIC ---
 
   if (!isLoggedIn) {
-      return <Login onLogin={handleLogin} isDbConnected={isDbConnected} />;
+      return <Login onLogin={handleLogin} connectionStatus={connectionStatus} />;
   }
 
   // IF ROLE IS EMPLOYEE, SHOW MOBILE DASHBOARD
@@ -252,7 +255,7 @@ const App: React.FC = () => {
         user={currentUser} 
         onLogoutClick={() => setShowLogoutModal(true)} 
         toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-        isDbConnected={isDbConnected}
+        connectionStatus={connectionStatus}
       />
       <div className="flex flex-1 pt-16 overflow-hidden">
         <Sidebar activePage={activePage} setActivePage={setActivePage} isOpen={isSidebarOpen} setIsOpen={setIsSidebarOpen} />

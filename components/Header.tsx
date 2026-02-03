@@ -1,17 +1,29 @@
 
 import React from 'react';
 import { LogOut, User as UserIcon, Calendar, Database } from 'lucide-react';
-import { User } from '../types';
+import { User, ConnectionStatus } from '../types';
 import { getCurrentDateFormatted } from '../utils';
 
 interface HeaderProps {
   user: User | null;
   onLogoutClick: () => void;
   toggleSidebar: () => void;
-  isDbConnected: boolean;
+  connectionStatus: ConnectionStatus;
 }
 
-const Header: React.FC<HeaderProps> = ({ user, onLogoutClick, toggleSidebar, isDbConnected }) => {
+const Header: React.FC<HeaderProps> = ({ user, onLogoutClick, toggleSidebar, connectionStatus }) => {
+  
+  const getStatusConfig = () => {
+    switch (connectionStatus) {
+      case 'CONNECTED': return { text: 'DB Online', color: 'bg-emerald-50 border-emerald-100 text-emerald-700', dot: 'bg-emerald-500 animate-pulse' };
+      case 'DB_ERROR': return { text: 'DB Error', color: 'bg-orange-50 border-orange-100 text-orange-700', dot: 'bg-orange-500' };
+      case 'SERVER_ERROR': return { text: 'Node JS Mati', color: 'bg-rose-50 border-rose-100 text-rose-700', dot: 'bg-rose-500' };
+      default: return { text: 'Unknown', color: 'bg-slate-50 border-slate-100 text-slate-500', dot: 'bg-slate-400' };
+    }
+  };
+  
+  const statusConfig = getStatusConfig();
+
   return (
     <header className="h-16 bg-white border-b border-slate-200 fixed top-0 left-0 right-0 z-40 px-4 md:px-6 flex items-center justify-between shadow-sm">
       <div className="flex items-center gap-3">
@@ -34,11 +46,11 @@ const Header: React.FC<HeaderProps> = ({ user, onLogoutClick, toggleSidebar, isD
         </div>
 
         {/* Database Status Indicator */}
-        <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${isDbConnected ? 'bg-emerald-50 border-emerald-100 text-emerald-700' : 'bg-rose-50 border-rose-100 text-rose-700'}`} title={isDbConnected ? "Database Terhubung" : "Database Terputus"}>
+        <div className={`hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-lg border text-xs font-medium ${statusConfig.color}`} title={statusConfig.text}>
            <Database size={14} />
            <span className="flex items-center gap-1.5">
-             <span className={`w-2 h-2 rounded-full ${isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></span>
-             {isDbConnected ? 'DB Online' : 'DB Offline'}
+             <span className={`w-2 h-2 rounded-full ${statusConfig.dot}`}></span>
+             {statusConfig.text}
            </span>
         </div>
 
