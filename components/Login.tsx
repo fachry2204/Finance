@@ -78,13 +78,23 @@ const Login: React.FC<LoginProps> = ({ onLogin, connectionStatus = 'CONNECTED' }
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
       
-      <div className={`bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transition-all duration-300 relative ${!isConnected ? 'filter blur-sm pointer-events-none' : ''}`}>
+      <div className={`bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transition-all duration-300 relative`}>
         
         {/* Database Status Indicator - Top Right of Login Form */}
         <div className={`absolute top-4 right-4 z-10 inline-flex items-center gap-2 px-2 py-1 rounded-full text-[10px] font-medium border shadow-sm transition-all duration-300 ${statusConfig.color}`}>
           <div className={`w-1.5 h-1.5 rounded-full ${statusConfig.dot}`}></div>
           {statusConfig.text}
         </div>
+
+        {!isConnected && (
+            <button 
+                onClick={handleRefresh}
+                className="absolute top-4 left-4 z-10 inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-medium bg-slate-100 text-slate-600 hover:bg-slate-200 transition-colors"
+                title="Refresh Page"
+            >
+                <RefreshCw size={10} /> Refresh
+            </button>
+        )}
 
         <div className="text-center mb-8">
           <img 
