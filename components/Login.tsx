@@ -48,42 +48,22 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDbConnected = true }) => {
   return (
     <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
       
-      {/* Database Status Indicator - Top Right */}
-      <div className={`absolute top-4 right-4 z-10 inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-medium border shadow-sm transition-all duration-300 ${isDbConnected ? 'bg-white text-emerald-700 border-emerald-100' : 'bg-white text-rose-700 border-rose-100'}`}>
-        <div className={`w-2.5 h-2.5 rounded-full ${isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
-        {isDbConnected ? 'Database Terhubung' : 'Database Offline'}
-      </div>
-
-      {/* Database Disconnect Warning Modal */}
-      {!isDbConnected && (
-        <div className="absolute inset-0 z-50 flex items-center justify-center bg-black bg-opacity-70 backdrop-blur-sm p-4 animate-fade-in">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-8 text-center border-t-4 border-rose-500">
-            <div className="w-20 h-20 bg-rose-100 rounded-full flex items-center justify-center mx-auto mb-6 text-rose-600 animate-pulse">
-              <Database size={40} />
-            </div>
-            <h3 className="text-2xl font-bold text-slate-800 mb-2">Koneksi Database Terputus</h3>
-            <p className="text-slate-600 mb-8">
-              Sistem tidak dapat terhubung ke database server. Mohon periksa koneksi internet Anda atau hubungi Administrator Sistem.
-            </p>
-            <button 
-              onClick={handleRefresh}
-              className="px-6 py-3 rounded-xl bg-rose-600 text-white font-bold hover:bg-rose-700 shadow-lg shadow-rose-200 transition-all flex items-center gap-2 mx-auto"
-            >
-              <RefreshCw size={20} /> Coba Hubungkan Ulang
-            </button>
-          </div>
+      <div className={`bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transition-all duration-300 relative ${!isDbConnected ? 'filter blur-sm pointer-events-none' : ''}`}>
+        
+        {/* Database Status Indicator - Top Right of Login Form */}
+        <div className={`absolute top-4 right-4 z-10 inline-flex items-center gap-2 px-2 py-1 rounded-full text-[10px] font-medium border shadow-sm transition-all duration-300 ${isDbConnected ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-rose-50 text-rose-700 border-rose-100'}`}>
+          <div className={`w-1.5 h-1.5 rounded-full ${isDbConnected ? 'bg-emerald-500 animate-pulse' : 'bg-rose-500'}`}></div>
+          {isDbConnected ? 'DB Connected' : 'Database Tidak Konek Hubungi Admin'}
         </div>
-      )}
 
-      <div className={`bg-white p-8 rounded-2xl shadow-xl w-full max-w-md border border-slate-100 transition-all duration-300 ${!isDbConnected ? 'filter blur-sm pointer-events-none' : ''}`}>
         <div className="text-center mb-8">
           <img 
-            src="https://ruangdimensirecords.com/img/logo.png" 
-            alt="RDR Logo" 
+            src="https://fin.dmasiv.id/img/logodmsv.png" 
+            alt="D'MASIV Logo" 
             className="h-24 w-auto mx-auto mb-6 object-contain"
           />
           <h1 className="text-2xl font-bold text-slate-800">Selamat Datang</h1>
-          <p className="text-slate-500">Sistem Informasi Keuangan RDR</p>
+          <p className="text-slate-500">Sistem Finance D'MASIV</p>
         </div>
 
         {error && (
@@ -135,7 +115,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, isDbConnected = true }) => {
         </form>
         
         <div className="mt-6 text-center text-xs text-slate-400">
-          &copy; {new Date().getFullYear()} RDR Finance System
+          &copy; {new Date().getFullYear()} D'MASIV Finance System
         </div>
       </div>
     </div>

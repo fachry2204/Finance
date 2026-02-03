@@ -213,7 +213,7 @@ app.get('/api/test-db', async (req, res) => {
 
 // Login Route (Supports Users & Employees)
 app.post('/api/login', async (req, res) => {
-    if (!pool) return res.status(500).json({ success: false, message: 'DB not connected' });
+    if (!pool) return res.status(500).json({ success: false, message: 'Database Tidak Konek Hubungi Admin' });
     const { username, password } = req.body;
 
     console.log(`[LOGIN ATTEMPT] User: ${username}`);
