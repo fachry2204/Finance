@@ -32,7 +32,12 @@ const dbConfig = {
     database: process.env.DB_NAME || 'rdr_admin',
     port: process.env.DB_PORT || 3306,
     dateStrings: true,
-    multipleStatements: true // Penting untuk menjalankan schema.sql
+    multipleStatements: true, // Penting untuk menjalankan schema.sql
+    // Tambahan untuk koneksi Remote (Hosting)
+    connectTimeout: 20000, // Tambah timeout jadi 20 detik
+    ssl: {
+        rejectUnauthorized: false // Izinkan Self-Signed Certificate (umum di shared hosting)
+    }
 };
 
 let pool;
@@ -45,8 +50,11 @@ const hashPassword = (password) => {
 // --- INITIALIZE DATABASE AUTOMATICALLY ---
 const initDatabase = async () => {
     try {
-        console.log(`[INIT] Mencoba menghubungkan ke MySQL di ${dbConfig.host}...`);
-
+        console.log(`[INIT] Mencoba menghubungkan ke MySQL...`);
+        console.log(`       Host: ${dbConfig.host}`);
+        console.log(`       User: ${dbConfig.user}`);
+        console.log(`       Database: ${dbConfig.database}`);
+        
         // 1. Koneksi awal TANPA database untuk mengecek/membuat DB
         const connection = await mysql.createConnection({
             host: dbConfig.host,
