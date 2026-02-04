@@ -1,9 +1,9 @@
-
 {
   "name": "dmasiv-finance-server",
   "version": "1.0.0",
   "description": "Backend API for D'MASIV Finance",
   "main": "index.js",
+  "type": "commonjs",
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon index.js"

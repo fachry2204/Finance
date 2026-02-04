@@ -1,17 +1,18 @@
 
-// Coba load dotenv
+const path = require('path');
+const fs = require('fs');
+
+// Coba load dotenv dari folder server (force path)
 try {
-    require('dotenv').config();
+    require('dotenv').config({ path: path.join(__dirname, '.env') });
 } catch (e) {
-    console.log('[INFO] Modul dotenv tidak ditemukan. Mengandalkan Environment Variables sistem.');
+    console.log('[INFO] Modul dotenv tidak ditemukan atau gagal load. Mengandalkan Environment Variables sistem.');
 }
 
 const express = require('express');
 const mysql = require('mysql2/promise');
 const cors = require('cors');
 const multer = require('multer');
-const fs = require('fs');
-const path = require('path');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
@@ -24,33 +25,10 @@ const JWT_SECRET = process.env.JWT_SECRET || 'rdr-secret-key-change-in-prod-999'
 app.use(cors());
 app.use(express.json());
 
-// --- SERVE STATIC FRONTEND (PRODUCTION MODE) ---
-// Configured to serve from 'public' folder inside server directory (Vite build output)
-const distPath = path.join(__dirname, 'public'); 
+// --- SERVE STATIC FRONTEND (Moved to bottom) ---
+// Static file serving logic has been moved to the end of the file 
+// to ensure it doesn't intercept API requests.
 
-if (fs.existsSync(distPath)) {
-    console.log('[INFO] Serving static files from:', distPath);
-    app.use(express.static(distPath));
-    
-    // Handle SPA Routing: Send index.html for any unknown route
-    app.get('*', (req, res) => {
-        if (!req.path.startsWith('/api')) {
-            res.sendFile(path.join(distPath, 'index.html'));
-        }
-    });
-} else {
-    // Fallback check for 'dist' folder (legacy or local dev)
-    const legacyDistPath = path.join(__dirname, '../dist');
-    if (fs.existsSync(legacyDistPath)) {
-        console.log('[INFO] Serving static files from:', legacyDistPath);
-        app.use(express.static(legacyDistPath));
-        app.get('*', (req, res) => {
-            if (!req.path.startsWith('/api')) {
-                res.sendFile(path.join(legacyDistPath, 'index.html'));
-            }
-        });
-    }
-}
 
 // --- DATABASE CONNECTION CONFIGURATION ---
 // PENTING: Gunakan 127.0.0.1, bukan localhost untuk menghindari isu IPv6 di Node.js
@@ -743,37 +721,38 @@ app.put('/api/reimbursements/:id', authenticateToken, async (req, res) => {
     }
 });
 
-// Serve Static Frontend & Uploads
+// --- SERVE STATIC FRONTEND & UPLOADS ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
-const publicPath = path.join(__dirname, 'public');
 
-if (fs.existsSync(publicPath)) {
-    console.log(`[INFO] Serving static files from: ${publicPath}`);
-    app.use(express.static(publicPath));
-    app.get('*', (req, res) => {
-        if (req.path.startsWith('/api') || req.path.startsWith('/auth') || req.path.startsWith('/uploads')) {
-            return res.status(404).json({ message: 'Not Found' });
-        }
-        res.sendFile(path.join(publicPath, 'index.html'));
-    });
-} else {
-    app.get('/', (req, res) => res.send('Server Running. Please run npm run build inside root directory.'));
+// Determine where the frontend build is located
+// Priority 1: server/public (Vite build output for production)
+// Priority 2: ../dist (Local development fallback)
+const serverPublicPath = path.join(__dirname, 'public');
+const rootDistPath = path.join(__dirname, '../dist');
+let frontendPath = null;
+
+if (fs.existsSync(serverPublicPath)) {
+    frontendPath = serverPublicPath;
+} else if (fs.existsSync(rootDistPath)) {
+    frontendPath = rootDistPath;
 }
 
-// Catch-all route untuk React Router (Harus ditaruh paling bawah sebelum app.listen)
-app.get('*', (req, res) => {
-    // Abaikan request API
-    if (req.path.startsWith('/api')) {
-        return res.status(404).json({ message: 'API endpoint not found' });
-    }
-
-    const indexHtml = path.join(__dirname, '../dist', 'index.html');
-    if (fs.existsSync(indexHtml)) {
-        res.sendFile(indexHtml);
-    } else {
-        res.send('API Server is Running. Frontend build not found.');
-    }
-});
+if (frontendPath) {
+    console.log(`[INFO] Serving static files from: ${frontendPath}`);
+    app.use(express.static(frontendPath));
+    
+    // SPA Catch-all Route (MUST BE LAST)
+    app.get('*', (req, res) => {
+        // Skip API routes (let them 404 if not found above)
+        if (req.path.startsWith('/api')) {
+             return res.status(404).json({ message: 'API endpoint not found' });
+        }
+        res.sendFile(path.join(frontendPath, 'index.html'));
+    });
+} else {
+    console.log('[WARN] Frontend build not found (neither server/public nor ../dist).');
+    app.get('/', (req, res) => res.send('API Server is Running. Frontend build not found. Please run npm run build.'));
+}
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
