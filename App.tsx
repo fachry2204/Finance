@@ -117,6 +117,7 @@ const App: React.FC = () => {
   // --- APP SETTINGS STATE (No LocalStorage) ---
   const [appSettings, setAppSettings] = useState<AppSettings>({
     categories: [], // Loaded from DB
+    companies: [], // Loaded from DB
     database: { host: '', user: '', password: '', name: '', port: '3306', isConnected: false },
     drive: { isConnected: false, selectedFolderId: '', selectedFolderName: '', autoUpload: false }
   });
@@ -148,12 +149,16 @@ const App: React.FC = () => {
           // 3. Categories from DB (Critical for Sync)
           const catData = await safeFetchJson('/api/categories');
           
-          // 4. Other Settings from DB
+          // 4. Companies from DB
+          const compData = await safeFetchJson('/api/companies');
+
+          // 5. Other Settings from DB
           const settingsData = await safeFetchJson('/api/settings');
 
           setAppSettings(prev => ({ 
             ...prev, 
             categories: Array.isArray(catData) ? catData : [],
+            companies: Array.isArray(compData) ? compData : [],
             drive: settingsData?.drive || prev.drive,
             database: { ...prev.database, isConnected: true } 
           }));
@@ -205,12 +210,12 @@ const App: React.FC = () => {
     switch (activePage) {
       case 'DASHBOARD': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="ALL" />;
       case 'STAT_EXPENSE': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="EXPENSE" />;
-      case 'ADD_EXPENSE': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} {...commonProps} />;
-      case 'REIMBURSE': return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onDeleteReimbursement={handleDeleteReimbursement} onUpdateReimbursementDetails={handleUpdateReimbursementDetails} onUpdateReimbursement={handleUpdateReimbursementStatus} categories={appSettings.categories} {...commonProps} />;
+      case 'ADD_EXPENSE': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
+      case 'REIMBURSE': return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onDeleteReimbursement={handleDeleteReimbursement} onUpdateReimbursementDetails={handleUpdateReimbursementDetails} onUpdateReimbursement={handleUpdateReimbursementStatus} categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
       case 'REPORT_EXPENSE': return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PENGELUARAN" categories={appSettings.categories} />;
-      case 'ADD_INCOME': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PEMASUKAN" filterType="PEMASUKAN" initialView="LIST" categories={appSettings.categories} {...commonProps} />;
+      case 'ADD_INCOME': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PEMASUKAN" filterType="PEMASUKAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
       case 'STAT_INCOME': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="INCOME" />;
-      case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} {...commonProps} />;
+      case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
       case 'REPORT': return <Report transactions={transactions} reimbursements={reimbursements} categories={appSettings.categories} />;
       case 'EMPLOYEES': return <EmployeeManager {...commonProps} />;
       case 'SETTINGS': return <Settings settings={appSettings} onUpdateSettings={handleUpdateSettings} {...commonProps} />;

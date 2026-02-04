@@ -18,6 +18,7 @@ export interface Transaction {
   type: TransactionType;
   expenseType?: ExpenseType; // Only if type is PENGELUARAN
   category: string;
+  companyId?: number; // Optional: PT Selection
   activityName: string;
   description: string;
   items: ItemDetail[];
@@ -34,6 +35,7 @@ export interface Reimbursement {
   date: string;
   requestorName: string;
   category: string;
+  companyId?: number; // Optional: PT Selection
   activityName: string;
   description: string;
   items: ItemDetail[];
@@ -79,8 +81,14 @@ export interface GoogleDriveConfig {
 
 export interface AppSettings {
   categories: string[];
+  companies: Company[];
   database: DatabaseConfig;
   drive: GoogleDriveConfig;
+}
+
+export interface Company {
+  id: number;
+  name: string;
 }
 
 export interface Employee {

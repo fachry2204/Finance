@@ -123,6 +123,10 @@ const initDatabase = async () => {
         // 6. Explicitly Ensure Employees Table Exists (Safety Check)
         await ensureEmployeesTable();
 
+        // 7. Ensure Companies Table and Columns Exist
+        await ensureCompaniesTable();
+        await ensureCompanyIdColumns();
+
     } catch (err) {
         globalDbError = err;
         console.error('\n===================================================');
@@ -174,6 +178,45 @@ const ensureEmployeesTable = async () => {
         console.error('[WARN] Gagal verifikasi tabel employees:', error.message);
     }
 }
+
+const ensureCompaniesTable = async () => {
+    if (!pool) return;
+    try {
+        await pool.query(`
+            CREATE TABLE IF NOT EXISTS companies (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                name VARCHAR(100) NOT NULL UNIQUE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            );
+        `);
+        console.log('[SUCCESS] Tabel companies terverifikasi.');
+    } catch (error) {
+        console.error('[WARN] Gagal verifikasi tabel companies:', error.message);
+    }
+};
+
+const ensureCompanyIdColumns = async () => {
+    if (!pool) return;
+    try {
+        // Check transactions table
+        const [tCols] = await pool.query("SHOW COLUMNS FROM transactions LIKE 'company_id'");
+        if (tCols.length === 0) {
+            await pool.query("ALTER TABLE transactions ADD COLUMN company_id INT");
+            await pool.query("ALTER TABLE transactions ADD CONSTRAINT fk_transactions_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL");
+            console.log('[SUCCESS] Kolom company_id ditambahkan ke transactions.');
+        }
+
+        // Check reimbursements table
+        const [rCols] = await pool.query("SHOW COLUMNS FROM reimbursements LIKE 'company_id'");
+        if (rCols.length === 0) {
+            await pool.query("ALTER TABLE reimbursements ADD COLUMN company_id INT");
+            await pool.query("ALTER TABLE reimbursements ADD CONSTRAINT fk_reimbursements_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL");
+            console.log('[SUCCESS] Kolom company_id ditambahkan ke reimbursements.');
+        }
+    } catch (error) {
+        console.error('[WARN] Gagal verifikasi kolom company_id:', error.message);
+    }
+};
 
 // Jalankan inisialisasi
 initDatabase();
@@ -396,6 +439,45 @@ app.delete('/api/categories/:name', authenticateToken, async (req, res) => {
     }
 });
 
+// --- COMPANIES API ---
+app.get('/api/companies', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    try {
+        const [rows] = await pool.query('SELECT id, name FROM companies ORDER BY name ASC');
+        res.json(rows);
+    } catch (error) {
+        console.error('[API ERROR] Fetch companies failed:', error);
+        res.status(500).json({ message: 'Failed to fetch companies' });
+    }
+});
+
+app.post('/api/companies', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { name } = req.body;
+    try {
+        await pool.query('INSERT INTO companies (name) VALUES (?)', [name]);
+        res.json({ success: true, message: 'Perusahaan berhasil ditambahkan' });
+    } catch (error) {
+        console.error('[API ERROR] Add company failed:', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: 'Nama perusahaan sudah ada.' });
+        }
+        res.status(500).json({ success: false, message: 'Gagal menambah perusahaan' });
+    }
+});
+
+app.delete('/api/companies/:id', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { id } = req.params;
+    try {
+        await pool.query('DELETE FROM companies WHERE id = ?', [id]);
+        res.json({ success: true, message: 'Perusahaan dihapus' });
+    } catch (error) {
+        console.error('[API ERROR] Delete company failed:', error);
+        res.status(500).json({ success: false, message: 'Gagal menghapus perusahaan' });
+    }
+});
+
 // --- USERS API (Admin Only) ---
 app.get('/api/users', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
@@ -526,6 +608,7 @@ app.get('/api/transactions', authenticateToken, async (req, res) => {
                 type: t.type,
                 expenseType: t.expense_type,
                 category: t.category,
+                companyId: t.company_id,
                 activityName: t.activity_name,
                 description: t.description,
                 grandTotal: parseFloat(t.grand_total || 0),
@@ -556,8 +639,8 @@ app.post('/api/transactions', authenticateToken, async (req, res) => {
         const t = req.body;
         
         await conn.query(
-            'INSERT INTO transactions (id, date, type, expense_type, category, activity_name, description, grand_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [t.id, t.date, t.type, t.expenseType || null, t.category, t.activityName, t.description, t.grandTotal]
+            'INSERT INTO transactions (id, date, type, expense_type, category, company_id, activity_name, description, grand_total) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [t.id, t.date, t.type, t.expenseType || null, t.category, t.companyId || null, t.activityName, t.description, t.grandTotal]
         );
 
         if (t.items && t.items.length > 0) {
@@ -603,8 +686,8 @@ app.put('/api/transactions/:id', authenticateToken, async (req, res) => {
     try {
         await conn.beginTransaction();
         await conn.query(
-            'UPDATE transactions SET date=?, type=?, expense_type=?, category=?, activity_name=?, description=?, grand_total=? WHERE id=?',
-            [t.date, t.type, t.expenseType || null, t.category, t.activityName, t.description, t.grandTotal, id]
+            'UPDATE transactions SET date=?, type=?, expense_type=?, category=?, company_id=?, activity_name=?, description=?, grand_total=? WHERE id=?',
+            [t.date, t.type, t.expenseType || null, t.category, t.companyId || null, t.activityName, t.description, t.grandTotal, id]
         );
         await conn.query('DELETE FROM transaction_items WHERE transaction_id = ?', [id]);
         if (t.items && t.items.length > 0) {
@@ -643,6 +726,7 @@ app.get('/api/reimbursements', authenticateToken, async (req, res) => {
                 date: r.date,
                 requestorName: r.requestor_name,
                 category: r.category,
+                companyId: r.company_id,
                 activityName: r.activity_name,
                 description: r.description,
                 grandTotal: parseFloat(r.grand_total || 0),
@@ -676,8 +760,8 @@ app.post('/api/reimbursements', authenticateToken, async (req, res) => {
         const r = req.body;
         
         await conn.query(
-            'INSERT INTO reimbursements (id, date, requestor_name, category, activity_name, description, grand_total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
-            [r.id, r.date, r.requestorName, r.category, r.activityName, r.description, r.grandTotal, 'PENDING']
+            'INSERT INTO reimbursements (id, date, requestor_name, category, company_id, activity_name, description, grand_total, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+            [r.id, r.date, r.requestorName, r.category, r.companyId || null, r.activityName, r.description, r.grandTotal, 'PENDING']
         );
 
         if (r.items && r.items.length > 0) {
@@ -710,8 +794,8 @@ app.put('/api/reimbursements/:id/details', authenticateToken, async (req, res) =
     try {
         await conn.beginTransaction();
         await conn.query(
-            'UPDATE reimbursements SET date=?, requestor_name=?, category=?, activity_name=?, description=?, grand_total=? WHERE id=?',
-            [r.date, r.requestorName, r.category, r.activityName, r.description, r.grandTotal, id]
+            'UPDATE reimbursements SET date=?, requestor_name=?, category=?, company_id=?, activity_name=?, description=?, grand_total=? WHERE id=?',
+            [r.date, r.requestorName, r.category, r.companyId || null, r.activityName, r.description, r.grandTotal, id]
         );
         await conn.query('DELETE FROM reimbursement_items WHERE reimbursement_id = ?', [id]);
         if (r.items && r.items.length > 0) {

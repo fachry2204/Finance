@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
-import { Transaction, TransactionType, ExpenseType, ItemDetail } from '../types';
+import { Transaction, TransactionType, ExpenseType, ItemDetail, Company } from '../types';
 import { generateId, formatCurrency, formatDate } from '../utils';
-import { Plus, Trash2, Save, UploadCloud, FileText, X, Calendar, Tag, File, Pencil, Check, AlertCircle } from 'lucide-react';
+import { Plus, Trash2, Save, UploadCloud, FileText, X, Calendar, Tag, File, Pencil, Check, AlertCircle, Building2 } from 'lucide-react';
 
 interface JournalProps {
   onAddTransaction: (transaction: Transaction) => void;
@@ -13,6 +13,7 @@ interface JournalProps {
   filterType?: TransactionType;
   initialView?: 'LIST' | 'FORM';
   categories: string[];
+  companies: Company[];
   authToken: string | null;
 }
 
@@ -25,6 +26,7 @@ const Journal: React.FC<JournalProps> = ({
   filterType,
   initialView = 'LIST',
   categories,
+  companies,
   authToken
 }) => {
   const [view, setView] = useState<'LIST' | 'FORM'>(initialView);
@@ -39,6 +41,7 @@ const Journal: React.FC<JournalProps> = ({
   const [type, setType] = useState<TransactionType>(defaultType);
   const [expenseType, setExpenseType] = useState<ExpenseType>('NORMAL');
   const [category, setCategory] = useState('');
+  const [companyId, setCompanyId] = useState<number | undefined>(undefined);
   const [activityName, setActivityName] = useState('');
   const [description, setDescription] = useState('');
   const [items, setItems] = useState<ItemDetail[]>([]);
@@ -189,6 +192,7 @@ const Journal: React.FC<JournalProps> = ({
         type,
         expenseType: type === 'PENGELUARAN' ? expenseType : undefined,
         category,
+        companyId: companyId || undefined,
         activityName,
         description,
         items: processedItems,
@@ -216,6 +220,7 @@ const Journal: React.FC<JournalProps> = ({
   const resetForm = () => {
     setDate(new Date().toISOString().split('T')[0]);
     setCategory('');
+    setCompanyId(undefined);
     setActivityName('');
     setDescription('');
     setItems([]);
@@ -231,6 +236,7 @@ const Journal: React.FC<JournalProps> = ({
       setType(t.type);
       setExpenseType(t.expenseType || 'NORMAL');
       setCategory(t.category);
+      setCompanyId(t.companyId);
       setActivityName(t.activityName);
       setDescription(t.description);
       setItems(t.items.map(i => ({...i}))); // Clone items
@@ -328,6 +334,20 @@ const Journal: React.FC<JournalProps> = ({
                 )}
               </>
             )}
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Perusahaan (PT)</label>
+              <select 
+                value={companyId || ''} 
+                onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+              >
+                <option value="">Pilih Perusahaan (Opsional)</option>
+                {companies.map((comp) => (
+                  <option key={comp.id} value={comp.id}>{comp.name}</option>
+                ))}
+              </select>
+            </div>
 
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Kategori Kegiatan</label>

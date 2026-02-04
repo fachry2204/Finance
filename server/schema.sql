@@ -4,16 +4,24 @@ CREATE TABLE IF NOT EXISTS categories (
     name VARCHAR(255) NOT NULL UNIQUE
 );
 
+CREATE TABLE IF NOT EXISTS companies (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    name VARCHAR(100) NOT NULL UNIQUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS transactions (
     id VARCHAR(50) PRIMARY KEY,
     date DATE NOT NULL,
     type ENUM('PEMASUKAN', 'PENGELUARAN') NOT NULL,
     expense_type ENUM('NORMAL', 'REIMBURSE'),
     category VARCHAR(255),
+    company_id INT,
     activity_name VARCHAR(255),
     description TEXT,
     grand_total DECIMAL(15, 2) DEFAULT 0,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS transaction_items (
@@ -33,13 +41,15 @@ CREATE TABLE IF NOT EXISTS reimbursements (
     date DATE NOT NULL,
     requestor_name VARCHAR(255),
     category VARCHAR(255),
+    company_id INT,
     activity_name VARCHAR(255),
     description TEXT,
     grand_total DECIMAL(15, 2) DEFAULT 0,
     status ENUM('PENDING', 'PROSES', 'BERHASIL', 'DITOLAK') DEFAULT 'PENDING',
     transfer_proof_url TEXT,
     rejection_reason TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL
 );
 
 CREATE TABLE IF NOT EXISTS reimbursement_items (

@@ -1,8 +1,8 @@
 
 import React, { useState } from 'react';
-import { Reimbursement, ItemDetail, ReimbursementStatus } from '../types';
+import { Reimbursement, ItemDetail, ReimbursementStatus, Company } from '../types';
 import { generateId, formatCurrency, formatDate } from '../utils';
-import { Plus, Save, UploadCloud, Trash2, User, FileText, Eye, X, CheckCircle, XCircle, Clock, Loader, AlertCircle, Lock, Pencil, Check } from 'lucide-react';
+import { Plus, Save, UploadCloud, Trash2, User, FileText, Eye, X, CheckCircle, XCircle, Clock, Loader, AlertCircle, Lock, Pencil, Check, Building2 } from 'lucide-react';
 
 interface ReimbursementProps {
   reimbursements: Reimbursement[];
@@ -11,6 +11,7 @@ interface ReimbursementProps {
   onDeleteReimbursement: (id: string) => void;
   onUpdateReimbursementDetails: (reimb: Reimbursement) => void; 
   categories: string[];
+  companies: Company[];
   authToken: string | null;
 }
 
@@ -21,6 +22,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   onDeleteReimbursement,
   onUpdateReimbursementDetails,
   categories,
+  companies,
   authToken 
 }) => {
   const [view, setView] = useState<'LIST' | 'FORM'>('LIST');
@@ -34,6 +36,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   const [date, setDate] = useState(new Date().toISOString().split('T')[0]);
   const [requestorName, setRequestorName] = useState('');
   const [category, setCategory] = useState('');
+  const [companyId, setCompanyId] = useState<number | undefined>(undefined);
   const [activityName, setActivityName] = useState('');
   const [description, setDescription] = useState('');
   const [items, setItems] = useState<ItemDetail[]>([]);
@@ -159,6 +162,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
         date,
         requestorName,
         category,
+        companyId: companyId || undefined,
         activityName,
         description,
         items: processedItems,
@@ -189,6 +193,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
     setDate(new Date().toISOString().split('T')[0]);
     setRequestorName('');
     setCategory('');
+    setCompanyId(undefined);
     setActivityName('');
     setDescription('');
     setItems([]);
@@ -206,6 +211,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
     setDate(r.date);
     setRequestorName(r.requestorName);
     setCategory(r.category);
+    setCompanyId(r.companyId);
     setActivityName(r.activityName);
     setDescription(r.description);
     setItems(r.items.map(i => ({...i})));
@@ -324,6 +330,21 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                 <input type="text" required placeholder="Nama Lengkap" value={requestorName} onChange={e => setRequestorName(e.target.value)} className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border p-2.5 pl-10 focus:ring-blue-500 outline-none transition-colors" />
               </div>
             </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Perusahaan (PT)</label>
+              <select 
+                value={companyId || ''} 
+                onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : undefined)}
+                className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border p-2.5 outline-none transition-colors"
+              >
+                <option value="">Pilih Perusahaan (Opsional)</option>
+                {companies.map((comp) => (
+                  <option key={comp.id} value={comp.id}>{comp.name}</option>
+                ))}
+              </select>
+            </div>
+
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Kategori</label>
               <select 
