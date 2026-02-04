@@ -123,13 +123,16 @@ const Journal: React.FC<JournalProps> = ({
     return items.reduce((sum, item) => sum + item.total, 0);
   };
 
-  const uploadFile = async (file: File): Promise<string> => {
+  const uploadFile = async (file: File, companyName: string, type: string): Promise<string> => {
     if (!authToken) {
       alert("Sesi habis. Silakan login ulang.");
       return '';
     }
     const formData = new FormData();
+    formData.append('companyName', companyName);
+    formData.append('type', type);
     formData.append('file', file);
+
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -172,11 +175,16 @@ const Journal: React.FC<JournalProps> = ({
     setIsSubmitting(true);
 
     try {
+      // Find Company Name
+      const selectedCompany = companies.find(c => c.id === companyId);
+      const companyName = selectedCompany ? selectedCompany.name : 'General';
+      const uploadType = type.toLowerCase(); // 'pemasukan' or 'pengeluaran'
+
       // Process items and upload files if present
       const processedItems = await Promise.all(items.map(async (item) => {
         let fileUrl = item.filePreviewUrl; // Default to existing object URL or undefined
         if (item.file) {
-          const uploadedUrl = await uploadFile(item.file);
+          const uploadedUrl = await uploadFile(item.file, companyName, uploadType);
           if (uploadedUrl) {
             fileUrl = uploadedUrl; // Use relative path from server
           }

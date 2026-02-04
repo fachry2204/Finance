@@ -96,13 +96,16 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
   const calculateTotal = () => items.reduce((sum, i) => sum + i.total, 0);
 
-  const uploadFile = async (file: File): Promise<string> => {
+  const uploadFile = async (file: File, companyName: string, type: string): Promise<string> => {
     if (!authToken) {
       alert("Sesi habis. Silakan login ulang.");
       return '';
     }
     const formData = new FormData();
+    formData.append('companyName', companyName);
+    formData.append('type', type);
     formData.append('file', file);
+
     try {
       const res = await fetch('/api/upload', {
         method: 'POST',
@@ -144,11 +147,15 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
     setIsSubmitting(true);
 
     try {
+      // Find Company Name
+      const selectedCompany = companies.find(c => c.id === companyId);
+      const companyName = selectedCompany ? selectedCompany.name : 'General';
+
       // Process items and upload files if present
       const processedItems = await Promise.all(items.map(async (item) => {
         let fileUrl = item.filePreviewUrl; 
         if (item.file) {
-          const uploadedUrl = await uploadFile(item.file);
+          const uploadedUrl = await uploadFile(item.file, companyName, 'reimburse');
           if (uploadedUrl) {
             fileUrl = uploadedUrl; 
           }
@@ -276,9 +283,16 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
     try {
         let proofUrl = selectedReimb.transferProofUrl;
         
+        // Find Company Name for Transfer Proof (Assuming same company as reimbursement)
+        // Since we are in list/modal view, we might not have the full company list easily accessible 
+        // OR we can rely on selectedReimb.companyId. 
+        // We have 'companies' prop.
+        const selectedCompany = companies.find(c => c.id === selectedReimb.companyId);
+        const companyName = selectedCompany ? selectedCompany.name : 'General';
+
         // Upload proof if new file selected
         if (transferProofFile) {
-            const uploadedUrl = await uploadFile(transferProofFile);
+            const uploadedUrl = await uploadFile(transferProofFile, companyName, 'reimburse');
             if (uploadedUrl) {
                 proofUrl = uploadedUrl;
             }

@@ -127,6 +127,9 @@ const initDatabase = async () => {
         await ensureCompaniesTable();
         await ensureCompanyIdColumns();
 
+        // 8. Remove Legacy Drive Columns
+        await ensureDriveColumnsRemoved();
+
     } catch (err) {
         globalDbError = err;
         console.error('\n===================================================');
@@ -218,6 +221,27 @@ const ensureCompanyIdColumns = async () => {
     }
 };
 
+const ensureDriveColumnsRemoved = async () => {
+    if (!pool) return;
+    try {
+        // Check transaction_items table
+        const [tCols] = await pool.query("SHOW COLUMNS FROM transaction_items LIKE 'drive_file_id'");
+        if (tCols.length > 0) {
+            await pool.query("ALTER TABLE transaction_items DROP COLUMN drive_file_id");
+            console.log('[SUCCESS] Kolom drive_file_id dihapus dari transaction_items.');
+        }
+
+        // Check reimbursement_items table
+        const [rCols] = await pool.query("SHOW COLUMNS FROM reimbursement_items LIKE 'drive_file_id'");
+        if (rCols.length > 0) {
+            await pool.query("ALTER TABLE reimbursement_items DROP COLUMN drive_file_id");
+            console.log('[SUCCESS] Kolom drive_file_id dihapus dari reimbursement_items.');
+        }
+    } catch (error) {
+        console.error('[WARN] Gagal menghapus kolom drive_file_id:', error.message);
+    }
+};
+
 // Jalankan inisialisasi
 initDatabase();
 
@@ -241,14 +265,37 @@ const authenticateToken = (req, res, next) => {
 };
 
 // --- FILE UPLOAD STORAGE CONFIGURATION ---
-const uploadDir = path.join(__dirname, 'uploads');
-if (!fs.existsSync(uploadDir)) {
-    fs.mkdirSync(uploadDir, { recursive: true });
+// Tujuan: ../public/img (supaya bisa diakses frontend langsung jika diperlukan)
+const publicImgDir = path.join(__dirname, '../public/img');
+
+// Pastikan folder root public/img ada
+if (!fs.existsSync(publicImgDir)) {
+    fs.mkdirSync(publicImgDir, { recursive: true });
 }
 
 const storage = multer.diskStorage({
     destination: (req, file, cb) => {
-        cb(null, uploadDir);
+        // Ambil companyName dan type dari req.body (perlu setup multer agar body terparse sebelum file)
+        // Namun, standard multer handling: req.body mungkin belum tersedia jika field file dikirim duluan.
+        // Frontend harus kirim text fields SEBELUM file.
+        
+        let companyName = req.body.companyName || 'General';
+        let type = req.body.type || 'others';
+
+        // Sanitize folder names
+        companyName = companyName.replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
+        type = type.replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_');
+
+        if (!companyName) companyName = 'General';
+        if (!type) type = 'others';
+
+        const targetDir = path.join(publicImgDir, companyName, type);
+
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+        
+        cb(null, targetDir);
     },
     filename: (req, file, cb) => {
         const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
@@ -455,8 +502,8 @@ app.post('/api/companies', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     const { name } = req.body;
     try {
-        await pool.query('INSERT INTO companies (name) VALUES (?)', [name]);
-        res.json({ success: true, message: 'Perusahaan berhasil ditambahkan' });
+        const [result] = await pool.query('INSERT INTO companies (name) VALUES (?)', [name]);
+        res.json({ success: true, message: 'Perusahaan berhasil ditambahkan', company: { id: result.insertId, name } });
     } catch (error) {
         console.error('[API ERROR] Add company failed:', error);
         if (error.code === 'ER_DUP_ENTRY') {
@@ -585,8 +632,19 @@ app.post('/api/upload', authenticateToken, upload.single('file'), (req, res) => 
     if (!req.file) {
         return res.status(400).json({ status: 'error', message: 'No file uploaded' });
     }
-    const fileUrl = `/uploads/${req.file.filename}`;
-    res.json({ status: 'success', url: fileUrl });
+    
+    // Construct public URL
+    // File disimpan di ../public/img/...
+    // URL harus relative terhadap root frontend atau server static serve.
+    // Kita akan serve ../public/img di route /img
+    
+    // Path relative dari folder public/img
+    const companyName = req.body.companyName ? req.body.companyName.replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_') : 'General';
+    const type = req.body.type ? req.body.type.replace(/[^a-zA-Z0-9\s-_]/g, '').trim().replace(/\s+/g, '_') : 'others';
+    
+    const relativePath = `/img/${companyName}/${type}/${req.file.filename}`;
+    
+    res.json({ status: 'success', url: relativePath });
 });
 
 // Transactions API (Protected)
@@ -848,7 +906,8 @@ app.put('/api/reimbursements/:id', authenticateToken, async (req, res) => {
 });
 
 // --- SERVE STATIC FRONTEND & UPLOADS ---
-app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Legacy support
+app.use('/img', express.static(path.join(__dirname, '../public/img'))); // New Image Path
 
 // Determine where the frontend build is located
 // Priority 1: server/public (Vite build output for production)
