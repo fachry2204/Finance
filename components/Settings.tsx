@@ -217,7 +217,14 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
   // --- RENDER HELPERS ---
   const filteredCategories = settings.categories.filter(c => {
       const typeMatch = activeTab === 'INCOME_CATEGORIES' ? c.type === 'INCOME' : c.type === 'EXPENSE';
-      const companyMatch = selectedCompanyId ? c.company_id === Number(selectedCompanyId) : true;
+      // Show company specific categories AND global categories (company_id is null)
+      // But if user specifically selected a company, they might expect to see ONLY that company's categories?
+      // Based on "Masing-masing perusahaan mempunyai Kategori... masing-masing", strict separation is implied.
+      // However, the DB has many NULL categories. If we hide them, the user sees nothing.
+      // Let's include NULL categories as "Standard/Global" options available to all.
+      const companyMatch = selectedCompanyId 
+          ? (c.company_id === Number(selectedCompanyId) || c.company_id === null) 
+          : true;
       return typeMatch && companyMatch;
   });
 

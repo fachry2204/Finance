@@ -150,7 +150,7 @@ const Journal: React.FC<JournalProps> = ({
     }
     const formData = new FormData();
     formData.append('companyName', companyName);
-    formData.append('type', type);
+    formData.append('type', type); // 'income' or 'expense' usually passed as 'reimburse' or others
     formData.append('file', file);
 
     try {
