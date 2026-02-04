@@ -99,7 +99,7 @@ const Login: React.FC<LoginProps> = ({ onLogin, connectionStatus = 'CHECKING' })
 
         <div className="text-center mb-8">
           <img 
-            src="https://fin.dmasiv.id/img/logodmsv.png" 
+            src="/img/logodmsv.png" 
             alt="D'MASIV Logo" 
             className="h-24 w-auto mx-auto mb-6 object-contain"
           />

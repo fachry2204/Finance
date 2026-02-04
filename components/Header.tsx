@@ -31,7 +31,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogoutClick, toggleSidebar, con
           <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" /></svg>
         </button>
         <img 
-          src="https://fin.dmasiv.id/img/logodmsv.png" 
+          src="/img/logodmsv.png" 
           alt="D'MASIV Finance" 
           className="h-10 w-auto object-contain"
         />

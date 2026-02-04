@@ -17,6 +17,7 @@ const jwt = require('jsonwebtoken');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+console.log(`[INFO] Starting server... Environment PORT: ${process.env.PORT}, Using PORT: ${PORT}`);
 const JWT_SECRET = process.env.JWT_SECRET || 'rdr-secret-key-change-in-prod-999';
 
 // Middleware
