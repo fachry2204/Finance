@@ -46,10 +46,7 @@ const dbConfig = {
     dateStrings: true,
     multipleStatements: true, // Penting untuk menjalankan schema.sql
     // Tambahan untuk koneksi Remote (Hosting)
-    connectTimeout: 20000, // Tambah timeout jadi 20 detik
-    ssl: {
-        rejectUnauthorized: false // Izinkan Self-Signed Certificate (umum di shared hosting)
-    }
+    connectTimeout: 20000 // Tambah timeout jadi 20 detik
 };
 
 let pool;
