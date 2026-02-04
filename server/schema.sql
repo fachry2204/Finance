@@ -1,12 +1,28 @@
 
 CREATE TABLE IF NOT EXISTS categories (
     id INT AUTO_INCREMENT PRIMARY KEY,
-    name VARCHAR(255) NOT NULL UNIQUE,
-    type ENUM('INCOME', 'EXPENSE') NOT NULL DEFAULT 'EXPENSE'
+    name VARCHAR(255) NOT NULL,
+    type ENUM('INCOME', 'EXPENSE') NOT NULL DEFAULT 'EXPENSE',
+    company_id INT,
+    FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL,
+    UNIQUE KEY uniq_category_type_company (name, type, company_id)
 );
 
 -- Upgrade: ensure 'type' column exists on legacy databases
 ALTER TABLE categories ADD COLUMN IF NOT EXISTS type ENUM('INCOME', 'EXPENSE') NOT NULL DEFAULT 'EXPENSE';
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS company_id INT NULL;
+-- Attempt to drop old unique constraint on name if it exists (might fail if not exists, but that's fine in sync)
+-- We use a stored procedure or just try/catch block in application code, but here we can try:
+-- ALTER TABLE categories DROP INDEX name; 
+-- (Commented out because it might stop execution if fails. We'll handle index migration via application code or manual query if needed, 
+--  but better: we can try to add the new index. If old one exists, it might conflict on data but not schema definition if we don't drop it.
+--  Actually, if 'name' is UNIQUE, we can't have duplicate names even with different company_id.
+--  So we MUST drop the 'name' index.)
+
+-- Safe index migration usually requires checking if index exists. 
+-- For now, we rely on the server startup script to handle complex migrations or we just assume this is a dev env.
+-- Let's add the column first.
+
 UPDATE categories SET type = 'EXPENSE' WHERE type IS NULL OR type = '';
 
 CREATE TABLE IF NOT EXISTS companies (
@@ -107,8 +123,9 @@ INSERT IGNORE INTO categories (name, type) VALUES
 ('Bunga', 'INCOME'), 
 ('Lain-lain', 'INCOME');
 
-ALTER TABLE categories DROP INDEX name;
-ALTER TABLE categories ADD UNIQUE KEY uniq_category_type (name, type);
+-- Indexes are handled by server/index.js migration logic to ensure safety
+-- ALTER TABLE categories DROP INDEX name;
+-- ALTER TABLE categories ADD UNIQUE KEY uniq_category_type (name, type);
 
 -- Seed Default Admin (Password: admin) - SHA256 hash
 INSERT IGNORE INTO users (username, password, role) VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin');

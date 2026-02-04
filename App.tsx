@@ -12,6 +12,7 @@ import Login from './components/Login';
 import EmployeeManager from './components/EmployeeManager';
 import EmployeeDashboard from './components/EmployeeDashboard';
 import SystemUpdater from './components/SystemUpdater';
+import CompanyManager from './components/CompanyManager';
 import { Transaction, Reimbursement, PageView, AppSettings, User, ConnectionStatus } from './types';
 import { AlertTriangle } from 'lucide-react';
 
@@ -232,6 +233,7 @@ const App: React.FC = () => {
       case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
       case 'REPORT': return <Report transactions={transactions} reimbursements={reimbursements} categories={appSettings.categories.map(c => c.name)} />;
       case 'EMPLOYEES': return <EmployeeManager {...commonProps} />;
+      case 'COMPANIES': return <CompanyManager settings={appSettings} onUpdateSettings={handleUpdateSettings} {...commonProps} />;
       case 'SETTINGS': return <Settings settings={appSettings} onUpdateSettings={handleUpdateSettings} {...commonProps} />;
       default: return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} />;
     }

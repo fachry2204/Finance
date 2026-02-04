@@ -59,7 +59,8 @@ export type PageView =
   | 'JOURNAL_LIST' 
   | 'REPORT'
   | 'EMPLOYEES' // New Page
-  | 'SETTINGS';
+  | 'SETTINGS'
+  | 'COMPANIES'; // New Page for Company Management
 
 // --- NEW CONFIGURATION TYPES ---
 
@@ -84,6 +85,8 @@ export interface Category {
   id?: number;
   name: string;
   type: 'INCOME' | 'EXPENSE';
+  company_id?: number | null;
+  company_name?: string;
 }
 
 export interface AppSettings {

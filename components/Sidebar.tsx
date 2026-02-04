@@ -15,7 +15,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
     'Menu Utama': true,
     'Pemasukan': true,
     'Pengeluaran': true,
-    'Lainnya': true,
+    'Pengaturan System': true,
   });
 
   const toggleGroup = (title: string) => {
@@ -52,9 +52,10 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
       ]
     },
     {
-      title: 'Lainnya',
+      title: 'Pengaturan System',
       items: [
         { id: 'EMPLOYEES' as PageView, label: 'User', icon: Users },
+        { id: 'COMPANIES' as PageView, label: 'Manajemen Perusahaan', icon: Building },
         { id: 'SETTINGS' as PageView, label: 'Pengaturan', icon: SettingsIcon },
       ]
     }

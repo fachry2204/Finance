@@ -185,6 +185,45 @@ const ensureCompanyIdColumns = async () => {
     }
 };
 
+const ensureCategorySchema = async () => {
+    if (!pool) return;
+    try {
+        // 1. Add company_id column if not exists
+        const [cols] = await pool.query("SHOW COLUMNS FROM categories LIKE 'company_id'");
+        if (cols.length === 0) {
+            await pool.query("ALTER TABLE categories ADD COLUMN company_id INT NULL");
+            await pool.query("ALTER TABLE categories ADD CONSTRAINT fk_categories_company FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE SET NULL");
+            console.log('[SUCCESS] Kolom company_id ditambahkan ke categories.');
+        }
+
+        // 2. Fix Unique Constraint (Drop 'name' index if exists and replace with compound index)
+        // Check if index 'name' exists
+        const [indexes] = await pool.query("SHOW INDEX FROM categories WHERE Key_name = 'name'");
+        if (indexes.length > 0) {
+            try {
+                await pool.query("ALTER TABLE categories DROP INDEX name");
+                console.log('[SUCCESS] Index UNIQUE lama (name) dihapus dari categories.');
+            } catch (e) {
+                console.warn('[WARN] Gagal drop index name:', e.message);
+            }
+        }
+
+        // Check if new index exists
+        const [newIndexes] = await pool.query("SHOW INDEX FROM categories WHERE Key_name = 'uniq_category_type_company'");
+        if (newIndexes.length === 0) {
+            try {
+                await pool.query("ALTER TABLE categories ADD UNIQUE KEY uniq_category_type_company (name, type, company_id)");
+                console.log('[SUCCESS] Index UNIQUE baru (name, type, company_id) ditambahkan ke categories.');
+            } catch (e) {
+                 console.warn('[WARN] Gagal add index baru:', e.message);
+            }
+        }
+
+    } catch (error) {
+        console.error('[WARN] Gagal verifikasi schema categories:', error.message);
+    }
+};
+
 const ensureDriveColumnsRemoved = async () => {
     if (!pool) return;
     try {
@@ -233,6 +272,7 @@ const syncDatabaseSchema = async (poolInstance) => {
     await ensureEmployeesTable();
     await ensureCompaniesTable();
     await ensureCompanyIdColumns();
+    await ensureCategorySchema();
     await ensureDriveColumnsRemoved();
 };
 
@@ -456,7 +496,12 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 app.get('/api/categories', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     try {
-        const [rows] = await pool.query('SELECT id, name, type FROM categories ORDER BY name ASC');
+        const [rows] = await pool.query(`
+            SELECT c.id, c.name, c.type, c.company_id, com.name as company_name 
+            FROM categories c 
+            LEFT JOIN companies com ON c.company_id = com.id 
+            ORDER BY c.name ASC
+        `);
         res.json(rows);
     } catch (error) {
         console.error('[API ERROR] Fetch categories failed:', error);
@@ -466,22 +511,26 @@ app.get('/api/categories', authenticateToken, async (req, res) => {
 
 app.post('/api/categories', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
-    const { name, type } = req.body;
+    const { name, type, company_id } = req.body;
+    
+    // Validasi basic
+    if (!name) return res.status(400).json({ success: false, message: 'Nama kategori wajib diisi' });
+
     try {
-        await pool.query('INSERT INTO categories (name, type) VALUES (?, ?)', [name, type || 'EXPENSE']);
+        await pool.query('INSERT INTO categories (name, type, company_id) VALUES (?, ?, ?)', [name, type || 'EXPENSE', company_id || null]);
         res.json({ success: true, message: 'Category added' });
     } catch (error) {
         console.error('[API ERROR] Add category failed:', error);
         if (error.code === 'ER_DUP_ENTRY') {
-            return res.status(400).json({ success: false, message: 'Nama kategori sudah ada' });
+            return res.status(400).json({ success: false, message: 'Kategori ini sudah ada untuk perusahaan/tipe tersebut' });
         }
         res.status(500).json({ success: false, message: 'Failed to add category' });
     }
 });
 
-app.put('/api/categories/:name', authenticateToken, async (req, res) => {
+app.put('/api/categories/:id', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
-    const { name } = req.params;
+    const { id } = req.params; // Changed from name to id
     const { newName } = req.body;
     
     if (!newName || !newName.trim()) {
@@ -489,31 +538,47 @@ app.put('/api/categories/:name', authenticateToken, async (req, res) => {
     }
 
     try {
-        // Cek duplicate
-        const [existing] = await pool.query('SELECT name FROM categories WHERE name = ?', [newName]);
+        // Cek duplicate (excluding self) - perlu cek company_id dan type dari record yg sedang diedit
+        // Ambil data lama dulu
+        const [current] = await pool.query('SELECT type, company_id FROM categories WHERE id = ?', [id]);
+        if (current.length === 0) {
+             return res.status(404).json({ success: false, message: 'Kategori tidak ditemukan' });
+        }
+        const { type, company_id } = current[0];
+
+        // Cek apakah nama baru sudah ada di scope yang sama (type & company)
+        const queryCheck = 'SELECT id FROM categories WHERE name = ? AND type = ? AND (company_id = ? OR (company_id IS NULL AND ? IS NULL)) AND id != ?';
+        const [existing] = await pool.query(queryCheck, [newName, type, company_id, company_id, id]);
+        
         if (existing.length > 0) {
             return res.status(400).json({ success: false, message: 'Nama kategori sudah ada' });
         }
 
-        await pool.query('UPDATE categories SET name = ? WHERE name = ?', [newName, name]);
+        await pool.query('UPDATE categories SET name = ? WHERE id = ?', [newName, id]);
         res.json({ success: true, message: 'Category updated' });
     } catch (error) {
         console.error('[API ERROR] Update category failed:', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: 'Kategori ini sudah ada untuk perusahaan/tipe tersebut' });
+        }
         res.status(500).json({ success: false, message: 'Failed to update category' });
     }
 });
 
-app.delete('/api/categories/:name', authenticateToken, async (req, res) => {
+app.delete('/api/categories/:id', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
-    const { name } = req.params;
+    const { id } = req.params;
+    
     try {
-        await pool.query('DELETE FROM categories WHERE name = ?', [name]);
+        await pool.query('DELETE FROM categories WHERE id = ?', [id]);
         res.json({ success: true, message: 'Category deleted' });
     } catch (error) {
         console.error('[API ERROR] Delete category failed:', error);
         res.status(500).json({ success: false, message: 'Failed to delete category' });
     }
 });
+
+// Deprecated delete by name route removed
 
 // --- COMPANIES API ---
 app.get('/api/companies', authenticateToken, async (req, res) => {
