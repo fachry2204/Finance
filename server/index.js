@@ -476,6 +476,30 @@ app.post('/api/categories', authenticateToken, async (req, res) => {
     }
 });
 
+app.put('/api/categories/:name', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { name } = req.params;
+    const { newName } = req.body;
+    
+    if (!newName || !newName.trim()) {
+        return res.status(400).json({ success: false, message: 'Nama kategori baru tidak boleh kosong' });
+    }
+
+    try {
+        // Cek duplicate
+        const [existing] = await pool.query('SELECT name FROM categories WHERE name = ?', [newName]);
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: 'Nama kategori sudah ada' });
+        }
+
+        await pool.query('UPDATE categories SET name = ? WHERE name = ?', [newName, name]);
+        res.json({ success: true, message: 'Category updated' });
+    } catch (error) {
+        console.error('[API ERROR] Update category failed:', error);
+        res.status(500).json({ success: false, message: 'Failed to update category' });
+    }
+});
+
 app.delete('/api/categories/:name', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     const { name } = req.params;
@@ -515,6 +539,30 @@ app.post('/api/companies', authenticateToken, async (req, res) => {
     }
 });
 
+app.put('/api/companies/:id', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { id } = req.params;
+    const { name } = req.body;
+
+    if (!name || !name.trim()) {
+        return res.status(400).json({ success: false, message: 'Nama perusahaan tidak boleh kosong' });
+    }
+
+    try {
+        // Cek duplicate
+        const [existing] = await pool.query('SELECT id FROM companies WHERE name = ? AND id != ?', [name, id]);
+        if (existing.length > 0) {
+            return res.status(400).json({ success: false, message: 'Nama perusahaan sudah digunakan' });
+        }
+
+        await pool.query('UPDATE companies SET name = ? WHERE id = ?', [name, id]);
+        res.json({ success: true, message: 'Perusahaan berhasil diperbarui' });
+    } catch (error) {
+        console.error('[API ERROR] Update company failed:', error);
+        res.status(500).json({ success: false, message: 'Gagal memperbarui perusahaan' });
+    }
+});
+
 app.delete('/api/companies/:id', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     const { id } = req.params;
@@ -547,6 +595,25 @@ app.post('/api/users', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'User created' });
     } catch (error) {
         res.status(500).json({ success: false, message: 'Failed to create user. Username might exist.' });
+    }
+});
+
+app.put('/api/users/:id', authenticateToken, async (req, res) => {
+    if (!pool) return res.status(500).json({ message: 'DB not connected' });
+    const { id } = req.params;
+    const { username, password } = req.body;
+    
+    try {
+        if (password && password.trim() !== '') {
+            const hashedPassword = hashPassword(password);
+            await pool.query('UPDATE users SET username = ?, password = ? WHERE id = ?', [username, hashedPassword, id]);
+        } else {
+            await pool.query('UPDATE users SET username = ? WHERE id = ?', [username, id]);
+        }
+        res.json({ success: true, message: 'User updated' });
+    } catch (error) {
+        console.error('[API ERROR] Update user failed:', error);
+        res.status(500).json({ success: false, message: 'Failed to update user' });
     }
 });
 

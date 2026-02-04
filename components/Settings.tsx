@@ -1,7 +1,8 @@
-
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Tag, Database, CheckCircle, XCircle, RefreshCw, Building } from 'lucide-react';
+import { Plus, Trash2, Tag, Database, CheckCircle, XCircle, RefreshCw, Building, Pencil, AlertCircle } from 'lucide-react';
 import { AppSettings, DatabaseConfig } from '../types';
+import Modal from './Modal';
+import ConfirmModal from './ConfirmModal';
 
 interface SettingsProps {
   settings: AppSettings;
@@ -12,18 +13,44 @@ interface SettingsProps {
 const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authToken }) => {
   const [activeTab, setActiveTab] = useState<'GENERAL' | 'DATABASE' | 'COMPANIES'>('GENERAL');
   
-  // Local state
+  // Local state for Inputs
   const [newCategory, setNewCategory] = useState('');
   const [newCompany, setNewCompany] = useState('');
   const [dbConfig, setDbConfig] = useState<DatabaseConfig>(settings.database);
   
+  // Loading States
   const [categoryLoading, setCategoryLoading] = useState(false);
   const [companyLoading, setCompanyLoading] = useState(false);
-  
   const [isTestingDB, setIsTestingDB] = useState(false);
+  
+  // Feedback States
   const [dbMessage, setDbMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [feedbackMessage, setFeedbackMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
 
-  // --- Category Handlers ---
+  // --- EDIT & DELETE STATES ---
+  // Category Edit
+  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
+
+  // Company Edit
+  const [editingCompany, setEditingCompany] = useState<{id: number, name: string} | null>(null);
+  const [editCompanyName, setEditCompanyName] = useState('');
+  const [isEditCompanyModalOpen, setIsEditCompanyModalOpen] = useState(false);
+
+  // Deletion
+  const [deleteType, setDeleteType] = useState<'CATEGORY' | 'COMPANY' | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<any>(null);
+  const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+
+  // --- HELPER: Show Feedback Modal ---
+  const showFeedback = (type: 'success' | 'error', text: string) => {
+      setFeedbackMessage({ type, text });
+      setIsFeedbackModalOpen(true);
+  };
+
+  // --- CATEGORY HANDLERS ---
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const catName = newCategory.trim();
@@ -42,53 +69,104 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
           });
           const data = await res.json();
           if (!data.success) {
-             alert(data.message || 'Gagal menambahkan kategori ke server');
+             showFeedback('error', data.message || 'Gagal menambahkan kategori ke server');
              setCategoryLoading(false);
              return;
           }
        } catch (err) {
-          alert('Gagal menghubungi server');
+          showFeedback('error', 'Gagal menghubungi server');
           setCategoryLoading(false);
           return;
        }
        setCategoryLoading(false);
     }
 
-    // Update local state immediately after success
     onUpdateSettings({
       ...settings,
       categories: [...settings.categories, catName]
     });
     setNewCategory('');
+    showFeedback('success', 'Kategori berhasil ditambahkan');
   };
 
-  const handleDeleteCategory = async (cat: string) => {
-    if (!confirm(`Hapus kategori "${cat}"?`)) return;
+  const openEditCategory = (cat: string) => {
+      setEditingCategory(cat);
+      setEditCategoryName(cat);
+      setIsEditCategoryModalOpen(true);
+  };
 
-    if (authToken) {
-        try {
+  const handleUpdateCategory = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingCategory || !authToken) return;
+      
+      const newName = editCategoryName.trim();
+      if (!newName) return;
+
+      setCategoryLoading(true);
+      try {
+          const res = await fetch(`/api/categories/${encodeURIComponent(editingCategory)}`, {
+              method: 'PUT',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`
+              },
+              body: JSON.stringify({ newName })
+          });
+          const data = await res.json();
+          
+          if (data.success) {
+              onUpdateSettings({
+                  ...settings,
+                  categories: settings.categories.map(c => c === editingCategory ? newName : c)
+              });
+              setIsEditCategoryModalOpen(false);
+              showFeedback('success', 'Kategori berhasil diperbarui');
+          } else {
+              showFeedback('error', data.message || 'Gagal update kategori');
+          }
+      } catch (err: any) {
+          showFeedback('error', 'Gagal menghubungi server: ' + err.message);
+      } finally {
+          setCategoryLoading(false);
+      }
+  };
+
+  const openDeleteCategory = (cat: string) => {
+      setDeleteType('CATEGORY');
+      setDeleteTarget(cat);
+      setIsConfirmDeleteOpen(true);
+  };
+
+  const confirmDeleteCategory = async () => {
+      if (!deleteTarget || !authToken) return;
+      const cat = deleteTarget;
+      
+      try {
             const res = await fetch(`/api/categories/${encodeURIComponent(cat)}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
             const data = await res.json();
             if (!data.success) {
-                alert("Gagal menghapus kategori di server");
+                showFeedback('error', "Gagal menghapus kategori di server");
                 return;
             }
+            
+            onUpdateSettings({
+              ...settings,
+              categories: settings.categories.filter(c => c !== cat)
+            });
+            showFeedback('success', 'Kategori berhasil dihapus');
         } catch (e) {
-            alert("Gagal menghubungi server");
-            return;
+            showFeedback('error', "Gagal menghubungi server");
+        } finally {
+            setIsConfirmDeleteOpen(false);
+            setDeleteTarget(null);
         }
-    }
-
-    onUpdateSettings({
-      ...settings,
-      categories: settings.categories.filter(c => c !== cat)
-    });
   };
 
-  // --- Company Handlers ---
+
+  // --- COMPANY HANDLERS ---
   const handleAddCompany = async (e: React.FormEvent) => {
     e.preventDefault();
     const compName = newCompany.trim();
@@ -113,7 +191,6 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                  throw new Error(data.message || 'Gagal menambahkan perusahaan ke server');
               }
               
-              // Update state with returned company or re-fetch
               if (data.company) {
                   onUpdateSettings({
                       ...settings,
@@ -129,52 +206,102 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                       onUpdateSettings({ ...settings, companies: listData });
                   }
               }
+              showFeedback('success', 'Perusahaan berhasil ditambahkan');
           } else {
               const text = await res.text();
               throw new Error(`Server error (${res.status}): ${text.substring(0, 100)}`);
           }
        } catch (err: any) {
           console.error("Add company error:", err);
-          alert(`Gagal: ${err.message}`);
+          showFeedback('error', `Gagal: ${err.message}`);
        } finally {
           setCompanyLoading(false);
+          setNewCompany('');
        }
     }
-    setNewCompany('');
   };
 
-  const handleDeleteCompany = async (id: number) => {
-    if (!confirm(`Hapus perusahaan ini?`)) return;
+  const openEditCompany = (comp: {id: number, name: string}) => {
+      setEditingCompany(comp);
+      setEditCompanyName(comp.name);
+      setIsEditCompanyModalOpen(true);
+  };
 
-    if (authToken) {
-        try {
+  const handleUpdateCompany = async (e: React.FormEvent) => {
+      e.preventDefault();
+      if (!editingCompany || !authToken) return;
+      
+      const newName = editCompanyName.trim();
+      if (!newName) return;
+
+      setCompanyLoading(true);
+      try {
+          const res = await fetch(`/api/companies/${editingCompany.id}`, {
+              method: 'PUT',
+              headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`
+              },
+              body: JSON.stringify({ name: newName })
+          });
+          const data = await res.json();
+          
+          if (data.success) {
+              onUpdateSettings({
+                  ...settings,
+                  companies: settings.companies.map(c => c.id === editingCompany.id ? { ...c, name: newName } : c)
+              });
+              setIsEditCompanyModalOpen(false);
+              showFeedback('success', 'Perusahaan berhasil diperbarui');
+          } else {
+              showFeedback('error', data.message || 'Gagal update perusahaan');
+          }
+      } catch (err: any) {
+          showFeedback('error', 'Gagal menghubungi server: ' + err.message);
+      } finally {
+          setCompanyLoading(false);
+      }
+  };
+
+  const openDeleteCompany = (id: number) => {
+      setDeleteType('COMPANY');
+      setDeleteTarget(id);
+      setIsConfirmDeleteOpen(true);
+  };
+
+  const confirmDeleteCompany = async () => {
+      if (!deleteTarget || !authToken) return;
+      const id = deleteTarget;
+
+      try {
             const res = await fetch(`/api/companies/${id}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
             const data = await res.json();
             if (!data.success) {
-                alert("Gagal menghapus perusahaan di server");
+                showFeedback('error', "Gagal menghapus perusahaan di server");
                 return;
             }
+            onUpdateSettings({
+              ...settings,
+              companies: settings.companies.filter(c => c.id !== id)
+            });
+            showFeedback('success', 'Perusahaan berhasil dihapus');
         } catch (e) {
-            alert("Gagal menghubungi server");
-            return;
+            showFeedback('error', "Gagal menghubungi server");
+        } finally {
+            setIsConfirmDeleteOpen(false);
+            setDeleteTarget(null);
         }
-    }
-
-    onUpdateSettings({
-      ...settings,
-      companies: settings.companies.filter(c => c.id !== id)
-    });
   };
 
-  // --- Database Handlers ---
+
+  // --- DATABASE HANDLERS ---
   const testDbConnection = async () => {
     setIsTestingDB(true);
     setDbMessage(null);
     try {
-      // Test DB route is public, but we can secure it if needed. Leaving public for diagnostics.
       const response = await fetch('/api/test-db');
       const data = await response.json();
       if (data.status === 'success') {
@@ -257,7 +384,14 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                 {settings.categories.map((cat, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 group hover:border-blue-200 transition-colors">
                     <span className="text-slate-700 font-medium">{cat}</span>
-                    <button onClick={() => handleDeleteCategory(cat)} className="text-slate-400 hover:text-rose-500 p-1"><Trash2 size={16} /></button>
+                    <div className="flex gap-2">
+                        <button onClick={() => openEditCategory(cat)} className="text-slate-400 hover:text-blue-600 p-1 hover:bg-slate-100 rounded transition-colors" title="Edit">
+                            <Pencil size={16} />
+                        </button>
+                        <button onClick={() => openDeleteCategory(cat)} className="text-slate-400 hover:text-rose-500 p-1 hover:bg-rose-50 rounded transition-colors" title="Hapus">
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -299,7 +433,14 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                 {settings.companies && settings.companies.map((comp) => (
                   <div key={comp.id} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 group hover:border-blue-200 transition-colors">
                     <span className="text-slate-700 font-medium">{comp.name}</span>
-                    <button onClick={() => handleDeleteCompany(comp.id)} className="text-slate-400 hover:text-rose-500 p-1"><Trash2 size={16} /></button>
+                    <div className="flex gap-2">
+                        <button onClick={() => openEditCompany(comp)} className="text-slate-400 hover:text-blue-600 p-1 hover:bg-slate-100 rounded transition-colors" title="Edit">
+                            <Pencil size={16} />
+                        </button>
+                        <button onClick={() => openDeleteCompany(comp.id)} className="text-slate-400 hover:text-rose-500 p-1 hover:bg-rose-50 rounded transition-colors" title="Hapus">
+                            <Trash2 size={16} />
+                        </button>
+                    </div>
                   </div>
                 ))}
                 {(!settings.companies || settings.companies.length === 0) && (
@@ -353,6 +494,101 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
           )}
         </div>
       </div>
+
+      {/* --- MODALS --- */}
+      
+      {/* Category Edit Modal */}
+      <Modal 
+        isOpen={isEditCategoryModalOpen} 
+        onClose={() => setIsEditCategoryModalOpen(false)}
+        title="Edit Kategori"
+      >
+          <form onSubmit={handleUpdateCategory} className="space-y-4">
+              <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nama Kategori</label>
+                  <input 
+                    type="text" 
+                    value={editCategoryName} 
+                    onChange={e => setEditCategoryName(e.target.value)} 
+                    className="w-full p-2.5 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                  <button type="button" onClick={() => setIsEditCategoryModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                  <button 
+                    type="submit" 
+                    disabled={categoryLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                  >
+                      {categoryLoading && <RefreshCw size={16} className="animate-spin" />} Simpan
+                  </button>
+              </div>
+          </form>
+      </Modal>
+
+      {/* Company Edit Modal */}
+      <Modal 
+        isOpen={isEditCompanyModalOpen} 
+        onClose={() => setIsEditCompanyModalOpen(false)}
+        title="Edit Perusahaan"
+      >
+          <form onSubmit={handleUpdateCompany} className="space-y-4">
+              <div>
+                  <label className="block text-sm font-medium text-slate-700 mb-1">Nama Perusahaan</label>
+                  <input 
+                    type="text" 
+                    value={editCompanyName} 
+                    onChange={e => setEditCompanyName(e.target.value)} 
+                    className="w-full p-2.5 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
+                    autoFocus
+                  />
+              </div>
+              <div className="flex justify-end gap-2 pt-4">
+                  <button type="button" onClick={() => setIsEditCompanyModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                  <button 
+                    type="submit" 
+                    disabled={companyLoading}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
+                  >
+                      {companyLoading && <RefreshCw size={16} className="animate-spin" />} Simpan
+                  </button>
+              </div>
+          </form>
+      </Modal>
+
+      {/* Confirmation Modal */}
+      <ConfirmModal 
+        isOpen={isConfirmDeleteOpen}
+        onClose={() => setIsConfirmDeleteOpen(false)}
+        onConfirm={deleteType === 'CATEGORY' ? confirmDeleteCategory : confirmDeleteCompany}
+        title={deleteType === 'CATEGORY' ? "Hapus Kategori?" : "Hapus Perusahaan?"}
+        message={deleteType === 'CATEGORY' ? `Yakin ingin menghapus kategori "${deleteTarget}"?` : "Yakin ingin menghapus perusahaan ini?"}
+        confirmText="Hapus"
+        isDestructive={true}
+      />
+
+      {/* Feedback Modal */}
+      <Modal
+        isOpen={isFeedbackModalOpen}
+        onClose={() => setIsFeedbackModalOpen(false)}
+        title={feedbackMessage?.type === 'success' ? 'Berhasil' : 'Informasi'}
+        maxWidth="max-w-sm"
+      >
+          <div className="flex flex-col items-center text-center p-2">
+             <div className={`p-3 rounded-full mb-3 ${feedbackMessage?.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                 {feedbackMessage?.type === 'success' ? <CheckCircle size={32} /> : <AlertCircle size={32} />}
+             </div>
+             <p className="text-slate-700 mb-6">{feedbackMessage?.text}</p>
+             <button 
+                onClick={() => setIsFeedbackModalOpen(false)}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
+             >
+                 Tutup
+             </button>
+          </div>
+      </Modal>
+
     </div>
   );
 };

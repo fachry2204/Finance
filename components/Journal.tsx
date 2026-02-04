@@ -1,8 +1,9 @@
-
 import React, { useState, useEffect, useMemo } from 'react';
 import { Transaction, TransactionType, ExpenseType, ItemDetail, Company } from '../types';
 import { generateId, formatCurrency, formatDate } from '../utils';
 import { Plus, Trash2, Save, UploadCloud, FileText, X, Calendar, Tag, File, Pencil, Check, AlertCircle, Building2 } from 'lucide-react';
+import Modal from './Modal';
+import ConfirmModal from './ConfirmModal';
 
 interface JournalProps {
   onAddTransaction: (transaction: Transaction) => void;
@@ -52,6 +53,25 @@ const Journal: React.FC<JournalProps> = ({
   // Image Preview Modal State
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Modal States
+  const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; isDestructive: boolean }>({
+    isOpen: false, title: '', message: '', onConfirm: () => {}, isDestructive: false
+  });
+  const [alertState, setAlertState] = useState<{ isOpen: boolean; title: string; message: string; type: 'success' | 'error' }>({
+    isOpen: false, title: '', message: '', type: 'error'
+  });
+
+  const closeConfirm = () => setConfirmState(prev => ({ ...prev, isOpen: false }));
+  const closeAlert = () => setAlertState(prev => ({ ...prev, isOpen: false }));
+
+  const showAlert = (message: string, type: 'success' | 'error' = 'error', title: string = 'Informasi') => {
+    setAlertState({ isOpen: true, title, message, type });
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void, title: string = 'Konfirmasi', isDestructive = false) => {
+    setConfirmState({ isOpen: true, title, message, onConfirm, isDestructive });
+  };
+
   // Update state when props change
   useEffect(() => {
     setView(initialView);
@@ -88,7 +108,7 @@ const Journal: React.FC<JournalProps> = ({
     const item = items.find(i => i.id === id);
     if (!item) return;
     if (!item.name.trim() || item.qty <= 0) {
-       alert("Mohon lengkapi nama item dan quantity minimal 1");
+       showAlert("Mohon lengkapi nama item dan quantity minimal 1");
        return;
     }
     setEditingItemId(null);
@@ -125,7 +145,7 @@ const Journal: React.FC<JournalProps> = ({
 
   const uploadFile = async (file: File, companyName: string, type: string): Promise<string> => {
     if (!authToken) {
-      alert("Sesi habis. Silakan login ulang.");
+      showAlert("Sesi habis. Silakan login ulang.");
       return '';
     }
     const formData = new FormData();
@@ -161,14 +181,14 @@ const Journal: React.FC<JournalProps> = ({
        const itemBeingEdited = items.find(i => i.id === editingItemId);
        if (itemBeingEdited) {
           if (!itemBeingEdited.name.trim() || itemBeingEdited.qty <= 0) {
-             alert("Mohon lengkapi Nama Item dan Qty pada baris yang sedang diedit.");
+             showAlert("Mohon lengkapi Nama Item dan Qty pada baris yang sedang diedit.");
              return;
           }
        }
     }
     
     if (!category || !activityName || items.length === 0) {
-      alert("Mohon lengkapi data wajib dan minimal 1 item.");
+      showAlert("Mohon lengkapi data wajib dan minimal 1 item.");
       return;
     }
 
@@ -210,7 +230,7 @@ const Journal: React.FC<JournalProps> = ({
 
       if (editingTransactionId) {
         onUpdateTransaction(transactionData);
-        alert("Transaksi berhasil diperbarui");
+        showAlert("Transaksi berhasil diperbarui", 'success');
       } else {
         onAddTransaction(transactionData);
       }
@@ -219,7 +239,7 @@ const Journal: React.FC<JournalProps> = ({
       resetForm();
     } catch (error) {
       console.error("Gagal menyimpan transaksi:", error);
-      alert("Terjadi kesalahan saat menyimpan transaksi.");
+      showAlert("Terjadi kesalahan saat menyimpan transaksi.");
     } finally {
       setIsSubmitting(false);
     }
@@ -253,9 +273,12 @@ const Journal: React.FC<JournalProps> = ({
 
   const handleDelete = (e: React.MouseEvent, id: string) => {
       e.stopPropagation();
-      if (window.confirm("Apakah Anda yakin ingin menghapus transaksi ini? Data yang dihapus tidak dapat dikembalikan.")) {
-          onDeleteTransaction(id);
-      }
+      showConfirm(
+        "Apakah Anda yakin ingin menghapus transaksi ini? Data yang dihapus tidak dapat dikembalikan.",
+        () => onDeleteTransaction(id),
+        "Hapus Transaksi",
+        true
+      );
   };
 
   const getTitle = () => {
@@ -763,6 +786,37 @@ const Journal: React.FC<JournalProps> = ({
           </div>
         </div>
       )}
+
+      <Modal
+        isOpen={alertState.isOpen}
+        onClose={closeAlert}
+        title={alertState.title}
+        maxWidth="max-w-sm"
+      >
+        <div className="flex flex-col gap-4">
+          <div className={`p-4 rounded-lg ${alertState.type === 'success' ? 'bg-emerald-50 text-emerald-700' : 'bg-rose-50 text-rose-700'} flex items-start gap-3`}>
+            {alertState.type === 'success' ? <Check size={24} /> : <AlertCircle size={24} />}
+            <p className="font-medium">{alertState.message}</p>
+          </div>
+          <div className="flex justify-end">
+             <button onClick={closeAlert} className="bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2 rounded-lg font-medium transition-colors">
+               Tutup
+             </button>
+          </div>
+        </div>
+      </Modal>
+
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={closeConfirm}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          closeConfirm();
+        }}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+      />
     </div>
   );
 };

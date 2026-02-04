@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Trash2, Pencil, Search, User as UserIcon, Mail, Phone, Briefcase, Lock, Save, X, RefreshCw, AlertCircle, Shield, Users } from 'lucide-react';
+import { Plus, Trash2, Pencil, Search, User as UserIcon, Mail, Phone, Briefcase, Lock, Save, X, RefreshCw, AlertCircle, Shield, Users, CheckCircle } from 'lucide-react';
 import { Employee, User as UserType } from '../types';
+import Modal from './Modal';
+import ConfirmModal from './ConfirmModal';
 
 interface EmployeeManagerProps {
   authToken: string | null;
@@ -29,8 +31,38 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
   // --- ADMIN STATE ---
   const [admins, setAdmins] = useState<UserType[]>([]);
   const [isAdminModalOpen, setIsAdminModalOpen] = useState(false);
+  const [isEditingAdmin, setIsEditingAdmin] = useState(false);
+  const [currentAdminId, setCurrentAdminId] = useState<number | null>(null);
   const [adminUsername, setAdminUsername] = useState('');
   const [adminPassword, setAdminPassword] = useState('');
+
+  // --- MODAL STATE ---
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDestructive: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    isDestructive: false
+  });
+  const [isConfirmLoading, setIsConfirmLoading] = useState(false);
+
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
 
   useEffect(() => {
     if (authToken) {
@@ -38,6 +70,23 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
       if (activeTab === 'ADMINS') fetchAdmins();
     }
   }, [authToken, activeTab]);
+
+  // Helpers
+  const showAlert = (title: string, message: string, type: 'success' | 'error' = 'success') => {
+    setAlertState({ isOpen: true, title, message, type });
+  };
+
+  const closeAlert = () => {
+    setAlertState(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const showConfirm = (title: string, message: string, onConfirm: () => void, isDestructive = false) => {
+    setConfirmState({ isOpen: true, title, message, onConfirm, isDestructive });
+  };
+
+  const closeConfirm = () => {
+    setConfirmState(prev => ({ ...prev, isOpen: false }));
+  };
 
   // --- EMPLOYEE FUNCTIONS ---
   const fetchEmployees = async () => {
@@ -133,36 +182,46 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
         fetchEmployees();
         setIsModalOpen(false);
         resetForm();
-        alert(isEditing ? "Data berhasil diperbarui" : "Pegawai berhasil ditambahkan");
+        showAlert('Berhasil', isEditing ? "Data berhasil diperbarui" : "Pegawai berhasil ditambahkan", 'success');
       } else {
-        alert(data.message || "Gagal menyimpan data.");
+        showAlert('Gagal', data.message || "Gagal menyimpan data.", 'error');
       }
     } catch (error: any) {
       console.error("Submit Error:", error);
-      alert(error.message || "Terjadi kesalahan sistem saat menghubungi server.");
+      showAlert('Error', error.message || "Terjadi kesalahan sistem saat menghubungi server.", 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleDelete = async (id: number) => {
-    if (!confirm("Yakin ingin menghapus data pegawai ini?")) return;
-    if (!authToken) return;
-
-    try {
-      const res = await fetch(`/api/employees/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-      const data = await res.json();
-      if (data.success) {
-         fetchEmployees();
-      } else {
-         alert(data.message || "Gagal menghapus");
-      }
-    } catch (e) {
-      alert("Gagal menghubungi server untuk menghapus.");
-    }
+  const handleDelete = (id: number) => {
+    showConfirm(
+      'Hapus Pegawai', 
+      'Apakah Anda yakin ingin menghapus data pegawai ini? Tindakan ini tidak dapat dibatalkan.',
+      async () => {
+        if (!authToken) return;
+        setIsConfirmLoading(true);
+        try {
+          const res = await fetch(`/api/employees/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': `Bearer ${authToken}` }
+          });
+          const data = await res.json();
+          if (data.success) {
+             fetchEmployees();
+             closeConfirm();
+             showAlert('Berhasil', 'Data pegawai berhasil dihapus', 'success');
+          } else {
+             showAlert('Gagal', data.message || "Gagal menghapus", 'error');
+          }
+        } catch (e) {
+          showAlert('Error', "Gagal menghubungi server untuk menghapus.", 'error');
+        } finally {
+          setIsConfirmLoading(false);
+        }
+      },
+      true
+    );
   };
 
   // --- ADMIN FUNCTIONS ---
@@ -173,7 +232,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
       });
       if (res.ok) {
         const data = await res.json();
-        // Filter only admins if the API returns all users (though it currently seems to return all users from 'users' table which are admins)
+        // Filter only admins if the API returns all users
         setAdmins(data.filter((u: UserType) => u.role === 'admin')); 
       }
     } catch (e) {
@@ -181,13 +240,38 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
     }
   };
 
+  const handleOpenAddAdmin = () => {
+    setAdminUsername('');
+    setAdminPassword('');
+    setIsEditingAdmin(false);
+    setCurrentAdminId(null);
+    setIsAdminModalOpen(true);
+  };
+
+  const handleOpenEditAdmin = (admin: UserType) => {
+    setAdminUsername(admin.username);
+    setAdminPassword(''); // Password intentionally left blank
+    setIsEditingAdmin(true);
+    setCurrentAdminId(admin.id);
+    setIsAdminModalOpen(true);
+  };
+
   const handleAdminSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!authToken) return;
     setIsLoading(true);
+    
     try {
-        const res = await fetch('/api/users', {
-            method: 'POST',
+        let url = '/api/users';
+        let method = 'POST';
+
+        if (isEditingAdmin && currentAdminId) {
+            url = `/api/users/${currentAdminId}`;
+            method = 'PUT';
+        }
+
+        const res = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${authToken}` },
             body: JSON.stringify({ username: adminUsername, password: adminPassword })
         });
@@ -197,35 +281,45 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
             setIsAdminModalOpen(false);
             setAdminUsername('');
             setAdminPassword('');
-            alert('Admin berhasil ditambahkan');
+            showAlert('Berhasil', isEditingAdmin ? 'Admin berhasil diperbarui' : 'Admin berhasil ditambahkan', 'success');
         } else {
-            alert(data.message || 'Gagal menambah admin');
+            showAlert('Gagal', data.message || 'Gagal menyimpan admin', 'error');
         }
     } catch (e) {
-        alert('Error connecting to server');
+        showAlert('Error', 'Error connecting to server', 'error');
     } finally {
         setIsLoading(false);
     }
   };
 
-  const handleDeleteAdmin = async (id: number) => {
-      if (!confirm('Hapus admin ini?')) return;
-      if (!authToken) return;
-      
-      try {
-          const res = await fetch(`/api/users/${id}`, {
-              method: 'DELETE',
-              headers: { 'Authorization': `Bearer ${authToken}` }
-          });
-          const data = await res.json();
-          if (data.success) {
-              fetchAdmins();
-          } else {
-              alert(data.message || 'Gagal menghapus admin');
+  const handleDeleteAdmin = (id: number) => {
+      showConfirm(
+        'Hapus Admin',
+        'Apakah Anda yakin ingin menghapus administrator ini?',
+        async () => {
+          if (!authToken) return;
+          setIsConfirmLoading(true);
+          try {
+              const res = await fetch(`/api/users/${id}`, {
+                  method: 'DELETE',
+                  headers: { 'Authorization': `Bearer ${authToken}` }
+              });
+              const data = await res.json();
+              if (data.success) {
+                  fetchAdmins();
+                  closeConfirm();
+                  showAlert('Berhasil', 'Admin berhasil dihapus', 'success');
+              } else {
+                  showAlert('Gagal', data.message || 'Gagal menghapus admin', 'error');
+              }
+          } catch (e) {
+              showAlert('Error', 'Gagal menghubungi server', 'error');
+          } finally {
+              setIsConfirmLoading(false);
           }
-      } catch (e) {
-          alert('Gagal menghubungi server');
-      }
+        },
+        true
+      );
   };
 
 
@@ -321,8 +415,8 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
                             {emp.name.charAt(0).toUpperCase()}
                             </div>
                             <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                            <button onClick={() => handleOpenEdit(emp)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded"><Pencil size={16}/></button>
-                            <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded"><Trash2 size={16}/></button>
+                            <button onClick={() => handleOpenEdit(emp)} className="p-1.5 text-slate-400 hover:text-blue-600 hover:bg-slate-50 rounded" title="Edit"><Pencil size={16}/></button>
+                            <button onClick={() => handleDelete(emp.id)} className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded" title="Hapus"><Trash2 size={16}/></button>
                             </div>
                         </div>
                         
@@ -355,7 +449,7 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
               <div className="flex justify-between items-center">
                   <p className="text-slate-500">Daftar akun administrator yang memiliki akses penuh ke sistem.</p>
                   <button 
-                  onClick={() => setIsAdminModalOpen(true)}
+                  onClick={handleOpenAddAdmin}
                   className="bg-slate-800 hover:bg-slate-900 text-white px-4 py-2 rounded-lg flex items-center gap-2 shadow-sm font-medium transition-colors"
                   >
                   <Plus size={18} /> Tambah Admin
@@ -386,13 +480,22 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
                                       </span>
                                   </td>
                                   <td className="p-4 text-right">
-                                      <button 
-                                          onClick={() => handleDeleteAdmin(admin.id)}
-                                          className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg transition-colors"
-                                          title="Hapus Admin"
-                                      >
-                                          <Trash2 size={18} />
-                                      </button>
+                                      <div className="flex items-center justify-end gap-2">
+                                        <button 
+                                            onClick={() => handleOpenEditAdmin(admin)}
+                                            className="text-slate-400 hover:text-blue-600 hover:bg-slate-50 p-2 rounded-lg transition-colors"
+                                            title="Edit Admin"
+                                        >
+                                            <Pencil size={18} />
+                                        </button>
+                                        <button 
+                                            onClick={() => handleDeleteAdmin(admin.id)}
+                                            className="text-rose-500 hover:text-rose-700 hover:bg-rose-50 p-2 rounded-lg transition-colors"
+                                            title="Hapus Admin"
+                                        >
+                                            <Trash2 size={18} />
+                                        </button>
+                                      </div>
                                   </td>
                               </tr>
                           ))}
@@ -410,15 +513,12 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
       )}
 
       {/* --- EMPLOYEE MODAL --- */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4 animate-fade-in">
-           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-              <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
-                 <h3 className="text-xl font-bold text-slate-800 dark:text-white">{isEditing ? 'Edit Data Pegawai' : 'Tambah Pegawai Baru'}</h3>
-                 <button onClick={() => setIsModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="p-6 space-y-4">
+      <Modal 
+        isOpen={isModalOpen} 
+        onClose={() => setIsModalOpen(false)} 
+        title={isEditing ? 'Edit Data Pegawai' : 'Tambah Pegawai Baru'}
+      >
+              <form onSubmit={handleSubmit} className="space-y-4">
                  <div>
                     <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Nama Lengkap</label>
                     <div className="relative">
@@ -455,76 +555,126 @@ const EmployeeManager: React.FC<EmployeeManagerProps> = ({ authToken }) => {
                  <div className="border-t border-slate-100 dark:border-slate-700 pt-4 mt-2">
                     <p className="text-xs font-bold text-slate-400 uppercase mb-3">Akses Login</p>
                     <div className="grid grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
-                            <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="w-full p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" />
-                        </div>
-                        <div>
-                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password {isEditing && '(Opsional)'}</label>
-                            <div className="relative">
-                               <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                               <input type="password" required={!isEditing} value={password} onChange={e => setPassword(e.target.value)} placeholder={isEditing ? 'Biarkan kosong jika tetap' : ''} className="w-full pl-10 p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" />
-                            </div>
-                        </div>
+                       <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
+                          <div className="relative">
+                             <UserIcon className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                             <input type="text" required value={username} onChange={e => setUsername(e.target.value)} className="w-full pl-10 p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" />
+                          </div>
+                       </div>
+                       <div>
+                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password {isEditing && '(Opsional)'}</label>
+                          <div className="relative">
+                             <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                             <input 
+                               type="password" 
+                               required={!isEditing} 
+                               value={password} 
+                               onChange={e => setPassword(e.target.value)} 
+                               placeholder={isEditing ? 'Kosongkan jika tetap' : ''}
+                               className="w-full pl-10 p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" 
+                             />
+                          </div>
+                       </div>
                     </div>
                  </div>
 
-                 <div className="flex justify-end gap-3 mt-6">
-                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                    <button type="submit" disabled={isLoading} className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2">
-                       {isLoading ? 'Menyimpan...' : <><Save size={18}/> Simpan Data</>}
+                 <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium">Batal</button>
+                    <button type="submit" disabled={isLoading} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 shadow-sm disabled:opacity-50">
+                       {isLoading ? 'Menyimpan...' : (
+                          <>
+                             <Save size={18} /> Simpan
+                          </>
+                       )}
                     </button>
                  </div>
               </form>
-           </div>
-        </div>
-      )}
+      </Modal>
 
       {/* --- ADMIN MODAL --- */}
-      {isAdminModalOpen && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60 backdrop-blur-sm p-4 animate-fade-in">
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-2xl max-w-sm w-full">
-                  <div className="flex items-center justify-between p-6 border-b border-slate-100 dark:border-slate-700">
-                      <h3 className="text-xl font-bold text-slate-800 dark:text-white">Tambah Admin</h3>
-                      <button onClick={() => setIsAdminModalOpen(false)} className="text-slate-400 hover:text-slate-600"><X size={24}/></button>
-                  </div>
-                  <form onSubmit={handleAdminSubmit} className="p-6 space-y-4">
-                      <div>
-                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
-                          <div className="relative">
-                              <UserIcon className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                              <input 
-                                  type="text" 
-                                  required 
-                                  value={adminUsername} 
-                                  onChange={e => setAdminUsername(e.target.value)} 
-                                  className="w-full pl-10 p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" 
-                              />
-                          </div>
-                      </div>
-                      <div>
-                          <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password</label>
-                          <div className="relative">
-                              <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
-                              <input 
-                                  type="password" 
-                                  required 
-                                  value={adminPassword} 
-                                  onChange={e => setAdminPassword(e.target.value)} 
-                                  className="w-full pl-10 p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" 
-                              />
-                          </div>
-                      </div>
-                      <div className="flex justify-end gap-3 mt-4">
-                          <button type="button" onClick={() => setIsAdminModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                          <button type="submit" disabled={isLoading} className="px-6 py-2 bg-slate-800 text-white rounded-lg hover:bg-slate-900 flex items-center gap-2">
-                              {isLoading ? 'Menyimpan...' : 'Simpan Admin'}
-                          </button>
-                      </div>
-                  </form>
-              </div>
+      <Modal
+        isOpen={isAdminModalOpen}
+        onClose={() => setIsAdminModalOpen(false)}
+        title={isEditingAdmin ? 'Edit Administrator' : 'Tambah Administrator'}
+        maxWidth="max-w-md"
+      >
+              <form onSubmit={handleAdminSubmit} className="space-y-4">
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Username</label>
+                    <div className="relative">
+                       <UserIcon className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                       <input 
+                        type="text" 
+                        required 
+                        value={adminUsername} 
+                        onChange={e => setAdminUsername(e.target.value)} 
+                        className="w-full pl-10 p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" 
+                       />
+                    </div>
+                 </div>
+                 <div>
+                    <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Password {isEditingAdmin && '(Opsional)'}</label>
+                    <div className="relative">
+                       <Lock className="absolute left-3 top-2.5 text-slate-400" size={18} />
+                       <input 
+                        type="password" 
+                        required={!isEditingAdmin} 
+                        value={adminPassword} 
+                        onChange={e => setAdminPassword(e.target.value)} 
+                        placeholder={isEditingAdmin ? 'Kosongkan jika tetap' : ''}
+                        className="w-full pl-10 p-2.5 rounded-lg border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 outline-none focus:ring-2 focus:ring-blue-500" 
+                       />
+                    </div>
+                 </div>
+
+                 <div className="flex justify-end gap-3 pt-4">
+                    <button type="button" onClick={() => setIsAdminModalOpen(false)} className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium">Batal</button>
+                    <button type="submit" disabled={isLoading} className="bg-slate-800 hover:bg-slate-900 text-white px-6 py-2 rounded-lg font-medium flex items-center gap-2 shadow-sm disabled:opacity-50">
+                       {isLoading ? 'Menyimpan...' : (
+                          <>
+                             <Save size={18} /> Simpan
+                          </>
+                       )}
+                    </button>
+                 </div>
+              </form>
+      </Modal>
+
+      {/* --- CONFIRM MODAL --- */}
+      <ConfirmModal 
+        isOpen={confirmState.isOpen}
+        onClose={closeConfirm}
+        onConfirm={confirmState.onConfirm}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+        isLoading={isConfirmLoading}
+      />
+
+      {/* --- ALERT MODAL (Using Generic Modal for Feedback) --- */}
+      <Modal
+        isOpen={alertState.isOpen}
+        onClose={closeAlert}
+        title={alertState.title}
+        maxWidth="max-w-sm"
+      >
+        <div className="flex flex-col items-center text-center space-y-4">
+          <div className={`p-4 rounded-full ${alertState.type === 'success' ? 'bg-green-100 text-green-600' : 'bg-rose-100 text-rose-600'}`}>
+            {alertState.type === 'success' ? <CheckCircle size={32} /> : <AlertCircle size={32} />}
           </div>
-      )}
+          <p className="text-slate-600 dark:text-slate-300">
+            {alertState.message}
+          </p>
+          <button 
+            onClick={closeAlert}
+            className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
+          >
+            Tutup
+          </button>
+        </div>
+      </Modal>
+
     </div>
   );
 };

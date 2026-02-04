@@ -1,8 +1,9 @@
-
 import React, { useState } from 'react';
 import { Reimbursement, ItemDetail, ReimbursementStatus, Company } from '../types';
 import { generateId, formatCurrency, formatDate } from '../utils';
 import { Plus, Save, UploadCloud, Trash2, User, FileText, Eye, X, CheckCircle, XCircle, Clock, Loader, AlertCircle, Lock, Pencil, Check, Building2 } from 'lucide-react';
+import Modal from './Modal';
+import ConfirmModal from './ConfirmModal';
 
 interface ReimbursementProps {
   reimbursements: Reimbursement[];
@@ -50,6 +51,49 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   // Image Preview Modal State
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // --- REUSABLE MODAL STATE ---
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    isDestructive: boolean;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+    isDestructive: false
+  });
+  
+  const [alertState, setAlertState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    type: 'success' | 'error';
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    type: 'success'
+  });
+
+  const showAlert = (message: string, type: 'success' | 'error' = 'error', title: string = 'Informasi') => {
+    setAlertState({ isOpen: true, title, message, type });
+  };
+
+  const closeAlert = () => {
+    setAlertState(prev => ({ ...prev, isOpen: false }));
+  };
+
+  const showConfirm = (message: string, onConfirm: () => void, title: string = 'Konfirmasi', isDestructive = false) => {
+    setConfirmState({ isOpen: true, title, message, onConfirm, isDestructive });
+  };
+
+  const closeConfirm = () => {
+    setConfirmState(prev => ({ ...prev, isOpen: false }));
+  };
+
   const addItem = () => {
     const newId = generateId();
     setItems([...items, { id: newId, name: '', qty: 1, price: 0, total: 0 }]);
@@ -65,7 +109,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
     const item = items.find(i => i.id === id);
     if (!item) return;
     if (!item.name.trim() || item.qty <= 0) {
-       alert("Mohon lengkapi nama item dan quantity minimal 1");
+       showAlert("Mohon lengkapi nama item dan quantity minimal 1");
        return;
     }
     setEditingItemId(null);
@@ -98,7 +142,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
   const uploadFile = async (file: File, companyName: string, type: string): Promise<string> => {
     if (!authToken) {
-      alert("Sesi habis. Silakan login ulang.");
+      showAlert("Sesi habis. Silakan login ulang.");
       return '';
     }
     const formData = new FormData();
@@ -134,15 +178,15 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
       const itemBeingEdited = items.find(i => i.id === editingItemId);
       if (itemBeingEdited) {
          if (!itemBeingEdited.name.trim() || itemBeingEdited.qty <= 0) {
-            alert("Mohon lengkapi Nama Item dan Qty pada baris yang sedang diedit.");
+            showAlert("Mohon lengkapi Nama Item dan Qty pada baris yang sedang diedit.");
             return;
          }
          // Valid, proceed as if saved
       }
     }
 
-    if (items.length === 0) return alert("Minimal 1 item reimburse.");
-    if (!category) return alert("Silakan pilih kategori.");
+    if (items.length === 0) return showAlert("Minimal 1 item reimburse.");
+    if (!category) return showAlert("Silakan pilih kategori.");
 
     setIsSubmitting(true);
 
@@ -180,7 +224,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
       if (editingReimbId) {
           onUpdateReimbursementDetails(reimbData);
-          alert("Data reimburse berhasil diperbarui");
+          showAlert("Data reimburse berhasil diperbarui", "success");
       } else {
           onAddReimbursement(reimbData);
       }
@@ -189,7 +233,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
       resetForm();
     } catch (error) {
       console.error("Gagal menyimpan reimburse:", error);
-      alert("Terjadi kesalahan.");
+      showAlert("Terjadi kesalahan.");
     } finally {
       setIsSubmitting(false);
     }
@@ -211,7 +255,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   const handleEdit = (e: React.MouseEvent, r: Reimbursement) => {
     e.stopPropagation();
     if (r.status !== 'PENDING') {
-        alert("Hanya pengajuan berstatus PENDING yang dapat diedit.");
+        showAlert("Hanya pengajuan berstatus PENDING yang dapat diedit.");
         return;
     }
     setEditingReimbId(r.id);
@@ -228,12 +272,12 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
   const handleDelete = (e: React.MouseEvent, r: Reimbursement) => {
     e.stopPropagation();
     if (r.status !== 'PENDING') {
-        alert("Hanya pengajuan berstatus PENDING yang dapat dihapus.");
+        showAlert("Hanya pengajuan berstatus PENDING yang dapat dihapus.");
         return;
     }
-    if (window.confirm("Yakin ingin menghapus pengajuan reimburse ini?")) {
+    showConfirm("Yakin ingin menghapus pengajuan reimburse ini?", () => {
         onDeleteReimbursement(r.id);
-    }
+    }, "Hapus Reimburse", true);
   };
 
   const getStatusColor = (status: ReimbursementStatus) => {
@@ -268,13 +312,13 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
     // Validation for Success
     if (tempStatus === 'BERHASIL' && !transferProofFile && !selectedReimb.transferProofUrl) {
-      alert('Wajib upload bukti transfer untuk mengubah status menjadi Berhasil.');
+      showAlert('Wajib upload bukti transfer untuk mengubah status menjadi Berhasil.');
       return;
     }
 
     // Validation for Rejected
     if (tempStatus === 'DITOLAK' && !rejectionReason.trim()) {
-      alert('Wajib mengisi alasan penolakan jika status Ditolak.');
+      showAlert('Wajib mengisi alasan penolakan jika status Ditolak.');
       return;
     }
 
@@ -308,7 +352,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
         onUpdateReimbursement(updatedReimb);
         setSelectedReimb(null); // Close modal
     } catch(e) {
-        alert("Gagal update status");
+        showAlert("Gagal update status");
     } finally {
         setIsSubmitting(false);
     }
@@ -797,8 +841,39 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
               </div>
             </div>
           )}
-        </>
-      )}
+
+      {/* GLOBAL MODALS */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={closeConfirm}
+        onConfirm={() => {
+          confirmState.onConfirm();
+          closeConfirm();
+        }}
+        title={confirmState.title}
+        message={confirmState.message}
+        isDestructive={confirmState.isDestructive}
+      />
+
+      <Modal
+        isOpen={alertState.isOpen}
+        onClose={closeAlert}
+        title={alertState.title}
+        maxWidth="max-w-sm"
+      >
+        <div className="flex flex-col items-center justify-center text-center p-4">
+            <div className={`p-3 rounded-full mb-4 ${alertState.type === 'error' ? 'bg-rose-100 text-rose-600' : 'bg-emerald-100 text-emerald-600'}`}>
+                {alertState.type === 'error' ? <AlertCircle size={32} /> : <CheckCircle size={32} />}
+            </div>
+            <p className="text-slate-700 dark:text-slate-300 mb-6">{alertState.message}</p>
+            <button 
+                onClick={closeAlert}
+                className="bg-slate-900 text-white px-6 py-2 rounded-lg hover:bg-slate-800 transition-colors"
+            >
+                Tutup
+            </button>
+        </div>
+      </Modal>
     </div>
   );
 };
