@@ -5,6 +5,10 @@ CREATE TABLE IF NOT EXISTS categories (
     type ENUM('INCOME', 'EXPENSE') NOT NULL DEFAULT 'EXPENSE'
 );
 
+-- Upgrade: ensure 'type' column exists on legacy databases
+ALTER TABLE categories ADD COLUMN IF NOT EXISTS type ENUM('INCOME', 'EXPENSE') NOT NULL DEFAULT 'EXPENSE';
+UPDATE categories SET type = 'EXPENSE' WHERE type IS NULL OR type = '';
+
 CREATE TABLE IF NOT EXISTS companies (
     id INT AUTO_INCREMENT PRIMARY KEY,
     name VARCHAR(100) NOT NULL UNIQUE,
@@ -87,8 +91,24 @@ CREATE TABLE IF NOT EXISTS settings (
 );
 
 -- Seed Categories
-INSERT IGNORE INTO categories (name) VALUES 
-('Operasional'), ('Transportasi'), ('Makan & Minum'), ('ATK'), ('Marketing'), ('Gaji'), ('Maintenance'), ('Project Alpha');
+INSERT IGNORE INTO categories (name, type) VALUES 
+('Operasional', 'EXPENSE'), 
+('Transportasi', 'EXPENSE'), 
+('Makan & Minum', 'EXPENSE'), 
+('ATK', 'EXPENSE'), 
+('Marketing', 'EXPENSE'), 
+('Gaji', 'EXPENSE'), 
+('Maintenance', 'EXPENSE'), 
+('Project Alpha', 'EXPENSE');
+
+INSERT IGNORE INTO categories (name, type) VALUES 
+('Penjualan', 'INCOME'), 
+('Jasa', 'INCOME'), 
+('Bunga', 'INCOME'), 
+('Lain-lain', 'INCOME');
+
+ALTER TABLE categories DROP INDEX name;
+ALTER TABLE categories ADD UNIQUE KEY uniq_category_type (name, type);
 
 -- Seed Default Admin (Password: admin) - SHA256 hash
 INSERT IGNORE INTO users (username, password, role) VALUES ('admin', '8c6976e5b5410415bde908bd4dee15dfb167a9c873fc4bb8a81f6f2ab448a918', 'admin');
