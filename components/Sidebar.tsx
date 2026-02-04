@@ -1,6 +1,6 @@
 
 import React, { useState } from 'react';
-import { LayoutDashboard, Receipt, FileText, X, PlusCircle, PieChart, Wallet, List, Settings as SettingsIcon, Users, ChevronDown, ChevronRight } from 'lucide-react';
+import { LayoutDashboard, Receipt, FileText, X, PlusCircle, PieChart, Wallet, List, Settings as SettingsIcon, Users, ChevronDown, ChevronRight, Building } from 'lucide-react';
 import { PageView } from '../types';
 
 interface SidebarProps {
