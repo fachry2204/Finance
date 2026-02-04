@@ -40,7 +40,7 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
     {
       title: 'Lainnya',
       items: [
-        { id: 'EMPLOYEES' as PageView, label: 'Data Pegawai', icon: Users },
+        { id: 'EMPLOYEES' as PageView, label: 'User', icon: Users },
         { id: 'SETTINGS' as PageView, label: 'Pengaturan', icon: SettingsIcon },
       ]
     }

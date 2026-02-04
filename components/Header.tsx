@@ -35,7 +35,7 @@ const Header: React.FC<HeaderProps> = ({ user, onLogoutClick, toggleSidebar, con
           alt="D'MASIV Finance" 
           className="h-10 w-auto object-contain"
         />
-        <span className="font-bold text-lg text-slate-800 tracking-tight hidden md:block">KEUANGAN <span className="text-blue-600">D'MASIV</span></span>
+        <span className="font-bold text-lg text-slate-800 tracking-tight hidden md:block">FINANCE</span>
       </div>
 
       <div className="flex items-center gap-4">
