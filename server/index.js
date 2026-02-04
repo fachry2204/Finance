@@ -91,44 +91,8 @@ const initDatabase = async () => {
         // 3. Buat Pool Koneksi ke Database yang sudah pasti ada
         pool = mysql.createPool(dbConfig);
 
-        // 4. Jalankan Schema (Buat Tabel Otomatis)
-        const schemaPath = path.join(__dirname, 'schema.sql');
-        if (fs.existsSync(schemaPath)) {
-            const schemaSql = fs.readFileSync(schemaPath, 'utf8');
-            const conn = await pool.getConnection();
-            
-            // Split query berdasarkan ';' untuk eksekusi satu per satu (lebih aman)
-            const queries = schemaSql.split(';').filter(q => q.trim().length > 0);
-            
-            for (const query of queries) {
-                if (!query.trim()) continue;
-                try {
-                    await conn.query(query);
-                } catch (err) {
-                    // Abaikan error jika tabel sudah ada
-                    if (!err.message.includes("already exists") && !err.message.includes("Duplicate entry")) {
-                        console.warn("[WARN] Gagal eksekusi query schema:", err.message);
-                    }
-                }
-            }
-            conn.release();
-            console.log('[SUCCESS] Tabel database berhasil disinkronisasi.');
-        } else {
-            console.warn('[WARN] File schema.sql tidak ditemukan.');
-        }
-
-        // 5. Pastikan User Admin Ada (Fallback jika schema.sql gagal seed)
-        await ensureAdminUser();
-        
-        // 6. Explicitly Ensure Employees Table Exists (Safety Check)
-        await ensureEmployeesTable();
-
-        // 7. Ensure Companies Table and Columns Exist
-        await ensureCompaniesTable();
-        await ensureCompanyIdColumns();
-
-        // 8. Remove Legacy Drive Columns
-        await ensureDriveColumnsRemoved();
+        // 4. Jalankan Schema dan Helper (Menggunakan syncDatabaseSchema)
+        await syncDatabaseSchema(pool);
 
     } catch (err) {
         globalDbError = err;
@@ -240,6 +204,36 @@ const ensureDriveColumnsRemoved = async () => {
     } catch (error) {
         console.error('[WARN] Gagal menghapus kolom drive_file_id:', error.message);
     }
+};
+
+const syncDatabaseSchema = async (poolInstance) => {
+    if (!poolInstance) return;
+    console.log('[MIGRATION] Memulai sinkronisasi schema...');
+    const schemaPath = path.join(__dirname, 'schema.sql');
+    if (fs.existsSync(schemaPath)) {
+        const schemaSql = fs.readFileSync(schemaPath, 'utf8');
+        const conn = await poolInstance.getConnection();
+        const queries = schemaSql.split(';').filter(q => q.trim().length > 0);
+        for (const query of queries) {
+            if (!query.trim()) continue;
+            try {
+                await conn.query(query);
+            } catch (err) {
+                if (!err.message.includes("already exists") && !err.message.includes("Duplicate entry")) {
+                    console.warn("[WARN] Gagal eksekusi query schema:", err.message);
+                }
+            }
+        }
+        conn.release();
+        console.log('[SUCCESS] Tabel database berhasil disinkronisasi.');
+    } else {
+        console.warn('[WARN] File schema.sql tidak ditemukan.');
+    }
+    await ensureAdminUser();
+    await ensureEmployeesTable();
+    await ensureCompaniesTable();
+    await ensureCompanyIdColumns();
+    await ensureDriveColumnsRemoved();
 };
 
 // Jalankan inisialisasi
@@ -356,7 +350,15 @@ app.get('/api/test-db', async (req, res) => {
     try {
         const connection = await pool.getConnection();
         await connection.ping();
+        
+        // Check schema integrity (cek apakah tabel utama ada)
+        const [tables] = await connection.query("SHOW TABLES LIKE 'transactions'");
         connection.release();
+
+        if (tables.length === 0) {
+            return res.json({ status: 'schema_missing', message: 'Database terhubung tapi tabel belum lengkap.' });
+        }
+
         res.json({ status: 'success', message: 'Terhubung ke MySQL Database!' });
     } catch (error) {
         console.error(error);
@@ -518,7 +520,7 @@ app.delete('/api/companies/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     try {
         await pool.query('DELETE FROM companies WHERE id = ?', [id]);
-        res.json({ success: true, message: 'Perusahaan dihapus' });
+        res.json({ success: true, message: 'Perusahaan berhasil dihapus' });
     } catch (error) {
         console.error('[API ERROR] Delete company failed:', error);
         res.status(500).json({ success: false, message: 'Gagal menghapus perusahaan' });
@@ -939,6 +941,25 @@ if (frontendPath) {
     app.get('/', (req, res) => res.send('API Server is Running. Frontend build not found. Please run npm run build.'));
 }
 
+// --- SYSTEM API ---
+app.post('/api/system/db-migrate', async (req, res) => {
+    // Tunggu pool max 5 detik
+    await waitForPool(5000);
+    if (!pool) return res.status(500).json({ success: false, message: 'Database Connection Failed' });
+
+    try {
+        await syncDatabaseSchema(pool);
+        res.json({ success: true, message: 'Database migration completed successfully' });
+    } catch (err) {
+        console.error('[MIGRATION ERROR]', err);
+        res.status(500).json({ success: false, message: 'Migration failed: ' + err.message });
+    }
+});
+
 app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
+    console.log(`Server is running on port ${PORT}`);
+    // Jalankan initDatabase (yang akan panggil syncDatabaseSchema) saat startup
+    // Note: initDatabase sudah dipanggil di baris 246 (di level top-level async call pattern), 
+    // tapi karena JS async, bisa jadi server listen dulu.
+    // Kita biarkan initDatabase berjalan independen.
 });

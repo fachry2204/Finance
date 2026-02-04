@@ -11,6 +11,7 @@ import Settings from './components/Settings';
 import Login from './components/Login';
 import EmployeeManager from './components/EmployeeManager';
 import EmployeeDashboard from './components/EmployeeDashboard';
+import SystemUpdater from './components/SystemUpdater';
 import { Transaction, Reimbursement, PageView, AppSettings, User, ConnectionStatus } from './types';
 import { AlertTriangle } from 'lucide-react';
 
@@ -20,6 +21,7 @@ const App: React.FC = () => {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [token, setToken] = useState<string | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showSystemUpdater, setShowSystemUpdater] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('CHECKING');
 
   // App State
@@ -42,10 +44,19 @@ const App: React.FC = () => {
     try {
       const response = await fetch('/api/test-db');
       const data = await response.json();
+      
+      if (data.status === 'schema_missing') {
+          // Database terhubung tapi tabel tidak lengkap -> Trigger Auto Update
+          setShowSystemUpdater(true);
+          setConnectionStatus('CONNECTED'); // Secara teknis konek, cuma perlu migrasi
+          return true;
+      }
+
       const isConnected = data.status === 'success';
       
       if (isConnected) {
         setConnectionStatus('CONNECTED');
+        if (showSystemUpdater) setShowSystemUpdater(false);
       } else {
         setConnectionStatus('DB_ERROR');
       }
@@ -290,6 +301,15 @@ const App: React.FC = () => {
             </div>
           </div>
         </div>
+      )}
+
+      {showSystemUpdater && (
+        <SystemUpdater 
+            onComplete={() => {
+                setShowSystemUpdater(false);
+                checkDbConnection();
+            }} 
+        />
       )}
     </div>
   );
