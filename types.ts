@@ -18,7 +18,7 @@ export interface Transaction {
   type: TransactionType;
   expenseType?: ExpenseType; // Only if type is PENGELUARAN
   category: string;
-  companyId?: number; // Optional: PT Selection
+  companyId: number; // Mandatory: PT Selection
   activityName: string;
   description: string;
   items: ItemDetail[];
@@ -35,7 +35,7 @@ export interface Reimbursement {
   date: string;
   requestorName: string;
   category: string;
-  companyId?: number; // Optional: PT Selection
+  companyId: number; // Mandatory: PT Selection
   activityName: string;
   description: string;
   items: ItemDetail[];
@@ -54,6 +54,7 @@ export type PageView =
   | 'STAT_EXPENSE' 
   | 'REPORT_EXPENSE' 
   | 'ADD_INCOME' 
+  | 'DASHBOARD_INCOME'
   | 'STAT_INCOME' 
   | 'JOURNAL_LIST' 
   | 'REPORT'
@@ -79,8 +80,14 @@ export interface GoogleDriveConfig {
   email?: string;
 }
 
+export interface Category {
+  id?: number;
+  name: string;
+  type: 'INCOME' | 'EXPENSE';
+}
+
 export interface AppSettings {
-  categories: string[];
+  categories: Category[];
   companies: Company[];
   database: DatabaseConfig;
   drive: GoogleDriveConfig;

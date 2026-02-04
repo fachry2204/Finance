@@ -223,11 +223,12 @@ const App: React.FC = () => {
       case 'STAT_EXPENSE': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="EXPENSE" />;
       case 'ADD_EXPENSE': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
       case 'REIMBURSE': return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onDeleteReimbursement={handleDeleteReimbursement} onUpdateReimbursementDetails={handleUpdateReimbursementDetails} onUpdateReimbursement={handleUpdateReimbursementStatus} categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
-      case 'REPORT_EXPENSE': return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PENGELUARAN" categories={appSettings.categories} />;
+      case 'REPORT_EXPENSE': return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PENGELUARAN" categories={appSettings.categories.map(c => c.name)} />;
       case 'ADD_INCOME': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PEMASUKAN" filterType="PEMASUKAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
-      case 'STAT_INCOME': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="INCOME" />;
+      case 'DASHBOARD_INCOME': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="INCOME" />;
+      case 'STAT_INCOME': return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PEMASUKAN" categories={appSettings.categories.map(c => c.name)} />;
       case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
-      case 'REPORT': return <Report transactions={transactions} reimbursements={reimbursements} categories={appSettings.categories} />;
+      case 'REPORT': return <Report transactions={transactions} reimbursements={reimbursements} categories={appSettings.categories.map(c => c.name)} />;
       case 'EMPLOYEES': return <EmployeeManager {...commonProps} />;
       case 'SETTINGS': return <Settings settings={appSettings} onUpdateSettings={handleUpdateSettings} {...commonProps} />;
       default: return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} />;

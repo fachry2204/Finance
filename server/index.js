@@ -456,8 +456,8 @@ app.post('/api/settings', authenticateToken, async (req, res) => {
 app.get('/api/categories', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
     try {
-        const [rows] = await pool.query('SELECT name FROM categories ORDER BY name ASC');
-        res.json(rows.map(r => r.name));
+        const [rows] = await pool.query('SELECT id, name, type FROM categories ORDER BY name ASC');
+        res.json(rows);
     } catch (error) {
         console.error('[API ERROR] Fetch categories failed:', error);
         res.status(500).json({ message: 'Failed to fetch categories' });
@@ -466,9 +466,9 @@ app.get('/api/categories', authenticateToken, async (req, res) => {
 
 app.post('/api/categories', authenticateToken, async (req, res) => {
     if (!pool) return res.status(500).json({ message: 'DB not connected' });
-    const { name } = req.body;
+    const { name, type } = req.body;
     try {
-        await pool.query('INSERT INTO categories (name) VALUES (?)', [name]);
+        await pool.query('INSERT INTO categories (name, type) VALUES (?, ?)', [name, type || 'EXPENSE']);
         res.json({ success: true, message: 'Category added' });
     } catch (error) {
         console.error('[API ERROR] Add category failed:', error);

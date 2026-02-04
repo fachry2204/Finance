@@ -1,6 +1,6 @@
 
-import React from 'react';
-import { LayoutDashboard, Receipt, FileText, X, PlusCircle, PieChart, Wallet, List, Settings as SettingsIcon, Users } from 'lucide-react';
+import React, { useState } from 'react';
+import { LayoutDashboard, Receipt, FileText, X, PlusCircle, PieChart, Wallet, List, Settings as SettingsIcon, Users, ChevronDown, ChevronRight } from 'lucide-react';
 import { PageView } from '../types';
 
 interface SidebarProps {
@@ -11,6 +11,19 @@ interface SidebarProps {
 }
 
 const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, setIsOpen }) => {
+  const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({
+    'Menu Utama': true,
+    'Pemasukan': true,
+    'Pengeluaran': true,
+    'Lainnya': true,
+  });
+
+  const toggleGroup = (title: string) => {
+    setExpandedGroups(prev => ({
+      ...prev,
+      [title]: !prev[title]
+    }));
+  };
   
   const menuGroups = [
     {
@@ -22,19 +35,20 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
       ]
     },
     {
+      title: 'Pemasukan',
+      items: [
+        { id: 'DASHBOARD_INCOME' as PageView, label: 'Dashboard Pemasukan', icon: LayoutDashboard },
+        { id: 'ADD_INCOME' as PageView, label: 'Tambah Pemasukan', icon: Wallet },
+        { id: 'STAT_INCOME' as PageView, label: 'Laporan Pemasukan', icon: FileText },
+      ]
+    },
+    {
       title: 'Pengeluaran',
       items: [
         { id: 'STAT_EXPENSE' as PageView, label: 'Dashboard Cash Out', icon: PieChart },
         { id: 'ADD_EXPENSE' as PageView, label: 'Tambah Pengeluaran', icon: PlusCircle },
         { id: 'REIMBURSE' as PageView, label: 'Tambah Reimburse', icon: Receipt },
         { id: 'REPORT_EXPENSE' as PageView, label: 'Laporan Pengeluaran', icon: FileText },
-      ]
-    },
-    {
-      title: 'Pemasukan',
-      items: [
-        { id: 'ADD_INCOME' as PageView, label: 'Tambah Pemasukan', icon: Wallet },
-        { id: 'STAT_INCOME' as PageView, label: 'Statistik Pemasukan', icon: PieChart },
       ]
     },
     {
@@ -69,32 +83,39 @@ const Sidebar: React.FC<SidebarProps> = ({ activePage, setActivePage, isOpen, se
         <nav className="flex-1 overflow-y-auto py-6 px-4 space-y-6">
           {menuGroups.map((group, groupIndex) => (
             <div key={groupIndex}>
-              <h3 className="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2">
-                {group.title}
-              </h3>
-              <div className="space-y-1">
-                {group.items.map((item) => {
-                  const Icon = item.icon;
-                  const isActive = activePage === item.id;
-                  return (
-                    <button
-                      key={item.id}
-                      onClick={() => {
-                        setActivePage(item.id);
-                        setIsOpen(false);
-                      }}
-                      className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
-                        isActive 
-                          ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
-                          : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'
-                      }`}
-                    >
-                      <Icon size={18} />
-                      <span className="font-medium">{item.label}</span>
-                    </button>
-                  );
-                })}
-              </div>
+              <button 
+                onClick={() => toggleGroup(group.title)}
+                className="w-full flex items-center justify-between text-xs font-semibold text-slate-400 uppercase tracking-wider mb-3 px-2 hover:text-slate-600 transition-colors"
+              >
+                <span>{group.title}</span>
+                {expandedGroups[group.title] ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+              </button>
+              
+              {expandedGroups[group.title] && (
+                <div className="space-y-1 animate-fade-in">
+                  {group.items.map((item) => {
+                    const Icon = item.icon;
+                    const isActive = activePage === item.id;
+                    return (
+                      <button
+                        key={item.id}
+                        onClick={() => {
+                          setActivePage(item.id);
+                          setIsOpen(false);
+                        }}
+                        className={`w-full flex items-center gap-3 px-4 py-2.5 rounded-lg transition-all duration-200 text-sm ${
+                          isActive 
+                            ? 'bg-blue-600 text-white shadow-md shadow-blue-200' 
+                            : 'text-slate-600 hover:bg-blue-50 hover:text-blue-600'
+                        }`}
+                      >
+                        <Icon size={18} />
+                        <span className="font-medium">{item.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           ))}
         </nav>

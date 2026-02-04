@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Trash2, Tag, Database, CheckCircle, XCircle, RefreshCw, Building, Pencil, AlertCircle } from 'lucide-react';
-import { AppSettings, DatabaseConfig } from '../types';
+import { AppSettings, DatabaseConfig, Category } from '../types';
 import Modal from './Modal';
 import ConfirmModal from './ConfirmModal';
 
@@ -11,7 +11,7 @@ interface SettingsProps {
 }
 
 const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authToken }) => {
-  const [activeTab, setActiveTab] = useState<'GENERAL' | 'DATABASE' | 'COMPANIES'>('GENERAL');
+  const [activeTab, setActiveTab] = useState<'INCOME_CATEGORIES' | 'EXPENSE_CATEGORIES' | 'DATABASE' | 'COMPANIES'>('INCOME_CATEGORIES');
   
   // Local state for Inputs
   const [newCategory, setNewCategory] = useState('');
@@ -30,7 +30,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
 
   // --- EDIT & DELETE STATES ---
   // Category Edit
-  const [editingCategory, setEditingCategory] = useState<string | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [editCategoryName, setEditCategoryName] = useState('');
   const [isEditCategoryModalOpen, setIsEditCategoryModalOpen] = useState(false);
 
@@ -54,7 +54,9 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
   const handleAddCategory = async (e: React.FormEvent) => {
     e.preventDefault();
     const catName = newCategory.trim();
-    if (!catName || settings.categories.includes(catName)) return;
+    const type = activeTab === 'INCOME_CATEGORIES' ? 'INCOME' : 'EXPENSE';
+
+    if (!catName || settings.categories.some(c => c.name === catName && c.type === type)) return;
 
     if (authToken) {
        setCategoryLoading(true);
@@ -65,7 +67,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                  'Content-Type': 'application/json',
                  'Authorization': `Bearer ${authToken}` 
               },
-              body: JSON.stringify({ name: catName })
+              body: JSON.stringify({ name: catName, type })
           });
           const data = await res.json();
           if (!data.success) {
@@ -81,17 +83,18 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
        setCategoryLoading(false);
     }
 
+    const newCatObj: Category = { name: catName, type };
     onUpdateSettings({
       ...settings,
-      categories: [...settings.categories, catName]
+      categories: [...settings.categories, newCatObj]
     });
     setNewCategory('');
     showFeedback('success', 'Kategori berhasil ditambahkan');
   };
 
-  const openEditCategory = (cat: string) => {
+  const openEditCategory = (cat: Category) => {
       setEditingCategory(cat);
-      setEditCategoryName(cat);
+      setEditCategoryName(cat.name);
       setIsEditCategoryModalOpen(true);
   };
 
@@ -104,7 +107,14 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
 
       setCategoryLoading(true);
       try {
-          const res = await fetch(`/api/categories/${encodeURIComponent(editingCategory)}`, {
+          // If we have ID, use it. If not (legacy), rely on name (risky if renamed, but handled by API usually)
+          // Since we migrated, we should ideally use ID. But frontend might not have it if not refreshed.
+          // Assuming API supports update by ID or Name.
+          // The API endpoint is /api/categories/:idOrName
+          
+          const identifier = editingCategory.id ? editingCategory.id.toString() : editingCategory.name;
+
+          const res = await fetch(`/api/categories/${encodeURIComponent(identifier)}`, {
               method: 'PUT',
               headers: {
                   'Content-Type': 'application/json',
@@ -117,7 +127,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
           if (data.success) {
               onUpdateSettings({
                   ...settings,
-                  categories: settings.categories.map(c => c === editingCategory ? newName : c)
+                  categories: settings.categories.map(c => c.name === editingCategory.name && c.type === editingCategory.type ? { ...c, name: newName } : c)
               });
               setIsEditCategoryModalOpen(false);
               showFeedback('success', 'Kategori berhasil diperbarui');
@@ -131,7 +141,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
       }
   };
 
-  const openDeleteCategory = (cat: string) => {
+  const openDeleteCategory = (cat: Category) => {
       setDeleteType('CATEGORY');
       setDeleteTarget(cat);
       setIsConfirmDeleteOpen(true);
@@ -139,10 +149,11 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
 
   const confirmDeleteCategory = async () => {
       if (!deleteTarget || !authToken) return;
-      const cat = deleteTarget;
+      const cat = deleteTarget as Category;
       
       try {
-            const res = await fetch(`/api/categories/${encodeURIComponent(cat)}`, {
+            const identifier = cat.id ? cat.id.toString() : cat.name;
+            const res = await fetch(`/api/categories/${encodeURIComponent(identifier)}`, {
                 method: 'DELETE',
                 headers: { 'Authorization': `Bearer ${authToken}` }
             });
@@ -154,7 +165,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
             
             onUpdateSettings({
               ...settings,
-              categories: settings.categories.filter(c => c !== cat)
+              categories: settings.categories.filter(c => !(c.name === cat.name && c.type === cat.type))
             });
             showFeedback('success', 'Kategori berhasil dihapus');
         } catch (e) {
@@ -318,6 +329,12 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
     }
   };
 
+  const filteredCategories = settings.categories.filter(c => {
+    if (activeTab === 'INCOME_CATEGORIES') return c.type === 'INCOME';
+    if (activeTab === 'EXPENSE_CATEGORIES') return c.type === 'EXPENSE';
+    return false;
+  });
+
   return (
     <div className="space-y-6 animate-fade-in">
       <h2 className="text-2xl font-bold text-slate-800">Pengaturan Aplikasi</h2>
@@ -325,10 +342,16 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
       {/* TABS */}
       <div className="flex space-x-1 bg-slate-100 p-1 rounded-xl w-fit overflow-x-auto">
         <button
-          onClick={() => setActiveTab('GENERAL')}
-          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'GENERAL' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+          onClick={() => setActiveTab('INCOME_CATEGORIES')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'INCOME_CATEGORIES' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
         >
-          Kategori
+          Kategori Pemasukan
+        </button>
+        <button
+          onClick={() => setActiveTab('EXPENSE_CATEGORIES')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${activeTab === 'EXPENSE_CATEGORIES' ? 'bg-white text-blue-600 shadow-sm' : 'text-slate-500 hover:text-slate-700'}`}
+        >
+          Kategori Pengeluaran
         </button>
         <button
           onClick={() => setActiveTab('COMPANIES')}
@@ -349,15 +372,17 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
         {/* CONTENT AREA */}
         <div className="md:col-span-2 space-y-6">
           
-          {/* --- GENERAL TAB --- */}
-          {activeTab === 'GENERAL' && (
+          {/* --- CATEGORIES TABS --- */}
+          {(activeTab === 'INCOME_CATEGORIES' || activeTab === 'EXPENSE_CATEGORIES') && (
             <div className="bg-white p-6 rounded-xl shadow-sm border border-slate-100">
               <div className="flex items-center gap-3 mb-6">
                 <div className="p-2 bg-blue-100 rounded-lg text-blue-600">
                   <Tag size={20} />
                 </div>
                 <div>
-                   <h3 className="text-lg font-bold text-slate-800">Kategori Kegiatan</h3>
+                   <h3 className="text-lg font-bold text-slate-800">
+                     {activeTab === 'INCOME_CATEGORIES' ? 'Kategori Pemasukan' : 'Kategori Pengeluaran'}
+                   </h3>
                    <p className="text-xs text-slate-500">Kelola kategori untuk dropdown input.</p>
                 </div>
               </div>
@@ -365,7 +390,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
               <form onSubmit={handleAddCategory} className="flex gap-2 mb-6">
                 <input 
                   type="text" 
-                  placeholder="Nama Kategori Baru..." 
+                  placeholder={`Nama Kategori ${activeTab === 'INCOME_CATEGORIES' ? 'Pemasukan' : 'Pengeluaran'} Baru...`}
                   value={newCategory}
                   onChange={(e) => setNewCategory(e.target.value)}
                   className="flex-1 rounded-lg border-slate-300 bg-slate-50 text-slate-900 border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none"
@@ -381,9 +406,9 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
               </form>
 
               <div className="space-y-2 max-h-[400px] overflow-y-auto pr-2 custom-scrollbar">
-                {settings.categories.map((cat, index) => (
+                {filteredCategories.map((cat, index) => (
                   <div key={index} className="flex items-center justify-between p-3 bg-slate-50 rounded-lg border border-slate-100 group hover:border-blue-200 transition-colors">
-                    <span className="text-slate-700 font-medium">{cat}</span>
+                    <span className="text-slate-700 font-medium">{cat.name}</span>
                     <div className="flex gap-2">
                         <button onClick={() => openEditCategory(cat)} className="text-slate-400 hover:text-blue-600 p-1 hover:bg-slate-100 rounded transition-colors" title="Edit">
                             <Pencil size={16} />
@@ -394,6 +419,9 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                     </div>
                   </div>
                 ))}
+                {filteredCategories.length === 0 && (
+                  <div className="text-center p-4 text-slate-400 text-sm">Belum ada kategori.</div>
+                )}
               </div>
             </div>
           )}
@@ -444,7 +472,7 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                   </div>
                 ))}
                 {(!settings.companies || settings.companies.length === 0) && (
-                    <div className="text-center p-4 text-slate-400 text-sm">Belum ada data perusahaan.</div>
+                  <div className="text-center p-4 text-slate-400 text-sm">Belum ada data perusahaan.</div>
                 )}
               </div>
             </div>
@@ -485,108 +513,86 @@ const Settings: React.FC<SettingsProps> = ({ settings, onUpdateSettings, authTok
                       disabled={isTestingDB}
                       className="bg-indigo-600 hover:bg-indigo-700 disabled:bg-indigo-400 text-white px-6 py-2.5 rounded-lg flex items-center gap-2 transition-colors font-medium"
                     >
-                      {isTestingDB ? <RefreshCw size={18} className="animate-spin" /> : <Database size={18} />}
-                      Test Koneksi
+                      {isTestingDB ? 'Mengecek...' : 'Cek Koneksi'}
                     </button>
                  </div>
               </div>
             </div>
           )}
+
         </div>
       </div>
-
-      {/* --- MODALS --- */}
       
-      {/* Category Edit Modal */}
-      <Modal 
-        isOpen={isEditCategoryModalOpen} 
+      {/* MODALS */}
+      <Modal
+        isOpen={isEditCategoryModalOpen}
         onClose={() => setIsEditCategoryModalOpen(false)}
         title="Edit Kategori"
       >
-          <form onSubmit={handleUpdateCategory} className="space-y-4">
-              <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nama Kategori</label>
-                  <input 
+        <form onSubmit={handleUpdateCategory}>
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Kategori</label>
+                <input 
                     type="text" 
+                    required 
                     value={editCategoryName} 
-                    onChange={e => setEditCategoryName(e.target.value)} 
-                    className="w-full p-2.5 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
-                    autoFocus
-                  />
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                  <button type="button" onClick={() => setIsEditCategoryModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                  <button 
-                    type="submit" 
-                    disabled={categoryLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
-                  >
-                      {categoryLoading && <RefreshCw size={16} className="animate-spin" />} Simpan
-                  </button>
-              </div>
-          </form>
+                    onChange={e => setEditCategoryName(e.target.value)}
+                    className="w-full rounded-lg border-slate-300 border p-2.5 outline-none focus:ring-2 focus:ring-blue-500" 
+                />
+            </div>
+            <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setIsEditCategoryModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Simpan</button>
+            </div>
+        </form>
       </Modal>
 
-      {/* Company Edit Modal */}
-      <Modal 
-        isOpen={isEditCompanyModalOpen} 
+      <Modal
+        isOpen={isEditCompanyModalOpen}
         onClose={() => setIsEditCompanyModalOpen(false)}
         title="Edit Perusahaan"
       >
-          <form onSubmit={handleUpdateCompany} className="space-y-4">
-              <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-1">Nama Perusahaan</label>
-                  <input 
+        <form onSubmit={handleUpdateCompany}>
+            <div className="mb-4">
+                <label className="block text-sm font-medium text-slate-700 mb-1">Nama Perusahaan</label>
+                <input 
                     type="text" 
+                    required 
                     value={editCompanyName} 
-                    onChange={e => setEditCompanyName(e.target.value)} 
-                    className="w-full p-2.5 rounded-lg border border-slate-300 outline-none focus:ring-2 focus:ring-blue-500"
-                    autoFocus
-                  />
-              </div>
-              <div className="flex justify-end gap-2 pt-4">
-                  <button type="button" onClick={() => setIsEditCompanyModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
-                  <button 
-                    type="submit" 
-                    disabled={companyLoading}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2 disabled:opacity-50"
-                  >
-                      {companyLoading && <RefreshCw size={16} className="animate-spin" />} Simpan
-                  </button>
-              </div>
-          </form>
+                    onChange={e => setEditCompanyName(e.target.value)}
+                    className="w-full rounded-lg border-slate-300 border p-2.5 outline-none focus:ring-2 focus:ring-blue-500" 
+                />
+            </div>
+            <div className="flex justify-end gap-2">
+                <button type="button" onClick={() => setIsEditCompanyModalOpen(false)} className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Batal</button>
+                <button type="submit" className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Simpan</button>
+            </div>
+        </form>
       </Modal>
 
-      {/* Confirmation Modal */}
-      <ConfirmModal 
+      <ConfirmModal
         isOpen={isConfirmDeleteOpen}
         onClose={() => setIsConfirmDeleteOpen(false)}
         onConfirm={deleteType === 'CATEGORY' ? confirmDeleteCategory : confirmDeleteCompany}
-        title={deleteType === 'CATEGORY' ? "Hapus Kategori?" : "Hapus Perusahaan?"}
-        message={deleteType === 'CATEGORY' ? `Yakin ingin menghapus kategori "${deleteTarget}"?` : "Yakin ingin menghapus perusahaan ini?"}
-        confirmText="Hapus"
+        title={deleteType === 'CATEGORY' ? "Hapus Kategori" : "Hapus Perusahaan"}
+        message={`Apakah Anda yakin ingin menghapus ${deleteType === 'CATEGORY' ? 'kategori' : 'perusahaan'} ini?`}
         isDestructive={true}
       />
 
-      {/* Feedback Modal */}
       <Modal
-        isOpen={isFeedbackModalOpen}
-        onClose={() => setIsFeedbackModalOpen(false)}
-        title={feedbackMessage?.type === 'success' ? 'Berhasil' : 'Informasi'}
-        maxWidth="max-w-sm"
+         isOpen={isFeedbackModalOpen}
+         onClose={() => setIsFeedbackModalOpen(false)}
+         title={feedbackMessage?.type === 'success' ? 'Berhasil' : 'Gagal'}
       >
-          <div className="flex flex-col items-center text-center p-2">
-             <div className={`p-3 rounded-full mb-3 ${feedbackMessage?.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
-                 {feedbackMessage?.type === 'success' ? <CheckCircle size={32} /> : <AlertCircle size={32} />}
-             </div>
-             <p className="text-slate-700 mb-6">{feedbackMessage?.text}</p>
-             <button 
-                onClick={() => setIsFeedbackModalOpen(false)}
-                className="w-full py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg font-medium transition-colors"
-             >
-                 Tutup
-             </button>
-          </div>
+         <div className="text-center p-4">
+            <div className={`w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4 ${feedbackMessage?.type === 'success' ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}`}>
+                {feedbackMessage?.type === 'success' ? <CheckCircle size={24} /> : <AlertCircle size={24} />}
+            </div>
+            <p className="text-slate-700">{feedbackMessage?.text}</p>
+            <button onClick={() => setIsFeedbackModalOpen(false)} className="mt-6 w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium py-2 rounded-lg transition-colors">
+                Tutup
+            </button>
+         </div>
       </Modal>
 
     </div>

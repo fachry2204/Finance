@@ -187,6 +187,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
 
     if (items.length === 0) return showAlert("Minimal 1 item reimburse.");
     if (!category) return showAlert("Silakan pilih kategori.");
+    if (!companyId) return showAlert("Silakan pilih perusahaan.");
 
     setIsSubmitting(true);
 
@@ -213,7 +214,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
         date,
         requestorName,
         category,
-        companyId: companyId || undefined,
+        companyId: companyId!,
         activityName,
         description,
         items: processedItems,
@@ -392,11 +393,12 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
             <div>
               <label className="block text-sm font-medium text-slate-700 dark:text-slate-300 mb-1">Perusahaan (PT)</label>
               <select 
+                required
                 value={companyId || ''} 
                 onChange={(e) => setCompanyId(e.target.value ? Number(e.target.value) : undefined)}
                 className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border p-2.5 outline-none transition-colors"
               >
-                <option value="">Pilih Perusahaan (Opsional)</option>
+                <option value="" disabled>Pilih Perusahaan</option>
                 {companies.map((comp) => (
                   <option key={comp.id} value={comp.id}>{comp.name}</option>
                 ))}
