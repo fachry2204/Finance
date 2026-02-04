@@ -3,10 +3,15 @@ const path = require('path');
 const fs = require('fs');
 
 // Coba load dotenv dari folder server (force path)
-try {
-    require('dotenv').config({ path: path.join(__dirname, '.env') });
-} catch (e) {
-    console.log('[INFO] Modul dotenv tidak ditemukan atau gagal load. Mengandalkan Environment Variables sistem.');
+const envPath = path.join(__dirname, '.env');
+const dotenvResult = require('dotenv').config({ path: envPath });
+
+if (dotenvResult.error) {
+    console.log('[INFO] Dotenv config failed or file not found:', dotenvResult.error.message);
+} else {
+    console.log('[INFO] Dotenv loaded successfully from:', envPath);
+    console.log('[INFO] DB_HOST loaded:', process.env.DB_HOST);
+    console.log('[INFO] DB_USER loaded:', process.env.DB_USER);
 }
 
 const express = require('express');
@@ -123,7 +128,9 @@ const initDatabase = async () => {
     } catch (err) {
         console.error('\n===================================================');
         console.error('[FATAL] KONEKSI DATABASE GAGAL');
-        console.error('Error:', err.message);
+        console.error('Error Message:', err.message);
+        console.error('Error Code:', err.code);
+        console.error('Full Error:', err);
         console.error('---------------------------------------------------');
         console.error('Solusi:');
         console.error('1. Pastikan XAMPP (MySQL) sudah di-START.');
