@@ -53,6 +53,7 @@ const dbConfig = {
 };
 
 let pool;
+let globalDbError = null;
 
 // Helper: Hash Password (SHA256)
 const hashPassword = (password) => {
@@ -126,6 +127,7 @@ const initDatabase = async () => {
         await ensureEmployeesTable();
 
     } catch (err) {
+        globalDbError = err;
         console.error('\n===================================================');
         console.error('[FATAL] KONEKSI DATABASE GAGAL');
         console.error('Error Message:', err.message);
@@ -218,6 +220,42 @@ const storage = multer.diskStorage({
 const upload = multer({ storage: storage });
 
 // --- API ROUTES ---
+
+// DEBUG ROUTE (Temporary for troubleshooting)
+app.get('/api/debug-db', async (req, res) => {
+    const debugInfo = {
+        envLoaded: !!process.env.DB_HOST,
+        host: process.env.DB_HOST,
+        user: process.env.DB_USER,
+        db: process.env.DB_NAME,
+        port: process.env.DB_PORT,
+        passwordLength: process.env.DB_PASSWORD ? process.env.DB_PASSWORD.length : 0,
+        globalError: globalDbError ? globalDbError.message : null
+    };
+
+    let connectionResult = null;
+    try {
+        const connection = await mysql.createConnection({
+            host: process.env.DB_HOST || '127.0.0.1',
+            user: process.env.DB_USER || 'root',
+            password: process.env.DB_PASSWORD || '',
+            database: process.env.DB_NAME || 'rdr_admin',
+            port: process.env.DB_PORT || 3306
+        });
+        await connection.ping();
+        await connection.end();
+        connectionResult = 'SUCCESS: Direct connection established';
+    } catch (err) {
+        connectionResult = `FAILED: ${err.message} (Code: ${err.code})`;
+    }
+
+    res.json({
+        status: 'debug',
+        timestamp: new Date().toISOString(),
+        connectionResult,
+        debugInfo
+    });
+});
 
 // Public Route
 app.get('/api/test-db', async (req, res) => {
