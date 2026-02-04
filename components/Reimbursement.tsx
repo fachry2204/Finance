@@ -814,8 +814,10 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
               </div>
             </div>
           )}
+        </>
+      )}
 
-          {/* IMAGE PREVIEW MODAL WITH ERROR HANDLING */}
+      {/* IMAGE PREVIEW MODAL WITH ERROR HANDLING */}
           {previewImage && (
             <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black bg-opacity-90 backdrop-blur-sm animate-fade-in" onClick={() => setPreviewImage(null)}>
               <button className="absolute top-4 right-4 text-white hover:text-gray-300 transition-colors" onClick={() => setPreviewImage(null)}>
