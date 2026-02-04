@@ -168,7 +168,9 @@ const App: React.FC = () => {
 
           setAppSettings(prev => ({ 
             ...prev, 
-            categories: Array.isArray(catData) ? catData : [],
+            categories: Array.isArray(catData) 
+              ? catData.map((row: any) => ({ id: row.id, name: row.name, type: row.type || 'EXPENSE' }))
+              : [],
             companies: Array.isArray(compData) ? compData : [],
             drive: settingsData?.drive || prev.drive,
             database: { ...prev.database, isConnected: true } 
@@ -221,10 +223,10 @@ const App: React.FC = () => {
     switch (activePage) {
       case 'DASHBOARD': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="ALL" />;
       case 'STAT_EXPENSE': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="EXPENSE" />;
-      case 'ADD_EXPENSE': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
-      case 'REIMBURSE': return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onDeleteReimbursement={handleDeleteReimbursement} onUpdateReimbursementDetails={handleUpdateReimbursementDetails} onUpdateReimbursement={handleUpdateReimbursementStatus} categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
+      case 'ADD_EXPENSE': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" filterType="PENGELUARAN" initialView="LIST" categories={appSettings.categories.filter(c => c.type === 'EXPENSE')} companies={appSettings.companies} {...commonProps} />;
+      case 'REIMBURSE': return <ReimbursementPage reimbursements={reimbursements} onAddReimbursement={handleAddReimbursement} onDeleteReimbursement={handleDeleteReimbursement} onUpdateReimbursementDetails={handleUpdateReimbursementDetails} onUpdateReimbursement={handleUpdateReimbursementStatus} categories={appSettings.categories.filter(c => c.type === 'EXPENSE').map(c => c.name)} companies={appSettings.companies} {...commonProps} />;
       case 'REPORT_EXPENSE': return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PENGELUARAN" categories={appSettings.categories.map(c => c.name)} />;
-      case 'ADD_INCOME': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PEMASUKAN" filterType="PEMASUKAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;
+      case 'ADD_INCOME': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PEMASUKAN" filterType="PEMASUKAN" initialView="LIST" categories={appSettings.categories.filter(c => c.type === 'INCOME')} companies={appSettings.companies} {...commonProps} />;
       case 'DASHBOARD_INCOME': return <Dashboard transactions={transactions} reimbursements={reimbursements} isDarkMode={false} filterType="INCOME" />;
       case 'STAT_INCOME': return <Report transactions={transactions} reimbursements={reimbursements} fixedFilterType="PEMASUKAN" categories={appSettings.categories.map(c => c.name)} />;
       case 'JOURNAL_LIST': return <Journal onAddTransaction={handleAddTransaction} onDeleteTransaction={handleDeleteTransaction} onUpdateTransaction={handleUpdateTransaction} transactions={transactions} defaultType="PENGELUARAN" initialView="LIST" categories={appSettings.categories} companies={appSettings.companies} {...commonProps} />;

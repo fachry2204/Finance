@@ -472,6 +472,9 @@ app.post('/api/categories', authenticateToken, async (req, res) => {
         res.json({ success: true, message: 'Category added' });
     } catch (error) {
         console.error('[API ERROR] Add category failed:', error);
+        if (error.code === 'ER_DUP_ENTRY') {
+            return res.status(400).json({ success: false, message: 'Nama kategori sudah ada' });
+        }
         res.status(500).json({ success: false, message: 'Failed to add category' });
     }
 });

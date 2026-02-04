@@ -391,7 +391,7 @@ const Journal: React.FC<JournalProps> = ({
               >
                 <option value="" disabled>Pilih Kategori</option>
                 {categories.map((cat, idx) => (
-                  <option key={idx} value={cat}>{cat}</option>
+                  <option key={idx} value={cat.name}>{cat.name}</option>
                 ))}
               </select>
             </div>
