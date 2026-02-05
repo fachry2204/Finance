@@ -169,9 +169,15 @@ const App: React.FC = () => {
 
           setAppSettings(prev => ({ 
             ...prev, 
-            categories: Array.isArray(catData) 
-              ? catData.map((row: any) => ({ id: row.id, name: row.name, type: row.type || 'EXPENSE' }))
-              : [],
+            categories: Array.isArray(catData)
+        ? catData.map((row: any) => ({
+            id: row.id,
+            name: row.name,
+            type: (row.type || 'EXPENSE').toUpperCase(),
+            company_id: row.company_id,
+            company_name: row.company_name
+          }))
+        : [],
             companies: Array.isArray(compData) ? compData : [],
             drive: settingsData?.drive || prev.drive,
             database: { ...prev.database, isConnected: true } 

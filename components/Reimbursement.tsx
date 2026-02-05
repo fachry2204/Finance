@@ -841,6 +841,7 @@ const ReimbursementPage: React.FC<ReimbursementProps> = ({
                     <AlertCircle size={48} className="text-rose-400 mb-3" />
                     <p className="font-medium text-lg text-slate-700">Gambar Tidak Ditemukan</p>
                     <p className="text-sm mt-1">File mungkin telah dihapus atau path salah.</p>
+                    <p className="text-xs mt-2 text-slate-400 break-all max-w-xs text-center">{previewImage}</p>
                 </div>
               </div>
             </div>

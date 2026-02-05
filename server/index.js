@@ -1030,15 +1030,64 @@ app.put('/api/reimbursements/:id', authenticateToken, async (req, res) => {
     const { id } = req.params;
     const { status, rejectionReason, transferProofUrl } = req.body;
     
+    const conn = await pool.getConnection();
+    
     try {
-        await pool.query(
+        await conn.beginTransaction();
+
+        // 1. Update Reimbursement Status
+        await conn.query(
             'UPDATE reimbursements SET status = ?, rejection_reason = ?, transfer_proof_url = IFNULL(?, transfer_proof_url) WHERE id = ?',
             [status, rejectionReason || null, transferProofUrl || null, id]
         );
+
+        // 2. If Status is BERHASIL, Post to Transactions (Jurnal Sistem)
+        if (status === 'BERHASIL') {
+            // Check if already exists in transactions (prevent duplicates)
+            const [existing] = await conn.query('SELECT id FROM transactions WHERE id = ?', [id]);
+            
+            if (existing.length === 0) {
+                // Fetch Reimbursement Details
+                const [reimbRows] = await conn.query('SELECT * FROM reimbursements WHERE id = ?', [id]);
+                
+                if (reimbRows.length > 0) {
+                    const r = reimbRows[0];
+                    
+                    // Fetch Reimbursement Items
+                    const [rItems] = await conn.query('SELECT * FROM reimbursement_items WHERE reimbursement_id = ?', [id]);
+
+                    // Insert into Transactions
+                    // Description format: "Reimburse oleh: [Name] - [Description]"
+                    const desc = `Reimburse oleh: ${r.requestor_name} - ${r.description}`;
+                    
+                    // Use the SAME ID as Reimbursement for traceability and duplicate prevention
+                    await conn.query(
+                        'INSERT INTO transactions (id, date, type, expense_type, category, company_id, activity_name, description, grand_total, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                        [r.id, r.date, 'PENGELUARAN', 'REIMBURSE', r.category, r.company_id, r.activity_name, desc, r.grand_total, r.created_at]
+                    );
+
+                    // Insert Items
+                    if (rItems.length > 0) {
+                        for (const item of rItems) {
+                             await conn.query(
+                                'INSERT INTO transaction_items (id, transaction_id, name, qty, price, total, file_url) VALUES (?, ?, ?, ?, ?, ?, ?)',
+                                [item.id, r.id, item.name, item.qty, item.price, item.total, item.file_url]
+                             );
+                        }
+                    }
+                    console.log(`[AUTO-POST] Reimbursement ${id} posted to Transactions.`);
+                }
+            }
+        }
+
+        await conn.commit();
         res.json({ status: 'success', message: 'Status updated' });
     } catch (error) {
+        await conn.rollback();
         console.error('Error updating reimbursement:', error);
         res.status(500).json({ message: 'Failed to update status', error: error.message });
+    } finally {
+        conn.release();
     }
 });
 

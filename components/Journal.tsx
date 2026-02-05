@@ -370,7 +370,7 @@ const Journal: React.FC<JournalProps> = ({
                       onChange={(e) => setExpenseType(e.target.value as ExpenseType)}
                       className="w-full rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border p-2.5 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
                     >
-                      <option value="NORMAL">Normal</option>
+                      <option value="NORMAL">Regular</option>
                       <option value="REIMBURSE">Reimburse</option>
                     </select>
                   </div>
@@ -831,6 +831,7 @@ const Journal: React.FC<JournalProps> = ({
                 <AlertCircle size={48} className="text-rose-400 mb-3" />
                 <p className="font-medium text-lg text-slate-700">Gambar Tidak Ditemukan</p>
                 <p className="text-sm mt-1">File mungkin telah dihapus atau path salah.</p>
+                <p className="text-xs mt-2 text-slate-400 break-all max-w-xs text-center">{previewImage}</p>
             </div>
           </div>
         </div>

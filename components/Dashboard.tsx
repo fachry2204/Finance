@@ -16,6 +16,15 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   
+  const filteredTransactions = useMemo(() => {
+    if (filterType === 'INCOME') {
+      return transactions.filter(t => t.type === 'PEMASUKAN');
+    } else if (filterType === 'EXPENSE') {
+      return transactions.filter(t => t.type === 'PENGELUARAN');
+    }
+    return transactions;
+  }, [transactions, filterType]);
+
   const stats = useMemo(() => {
     const totalIncome = transactions
       .filter(t => t.type === 'PEMASUKAN')
@@ -36,14 +45,6 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
   }, [transactions, reimbursements]);
 
   const chartData = useMemo(() => {
-    // Filter transactions based on view type
-    let filteredTransactions = transactions;
-    if (filterType === 'INCOME') {
-      filteredTransactions = transactions.filter(t => t.type === 'PEMASUKAN');
-    } else if (filterType === 'EXPENSE') {
-      filteredTransactions = transactions.filter(t => t.type === 'PENGELUARAN');
-    }
-
     // Group by category for a simple chart
     const data: Record<string, number> = {};
     
@@ -56,7 +57,7 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
       name: key,
       value: data[key],
     })).slice(0, 5); // Top 5
-  }, [transactions, filterType]);
+  }, [filteredTransactions]);
 
   const getTitle = () => {
     if (filterType === 'INCOME') return 'Statistik Pemasukan';
@@ -146,33 +147,21 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                {transactions
-                  .filter(t => filterType === 'ALL' || (filterType === 'INCOME' && t.type === 'PEMASUKAN') || (filterType === 'EXPENSE' && t.type === 'PENGELUARAN'))
-                  .slice(0, 5).map((t) => (
-                  <tr 
-                    key={t.id} 
-                    onClick={() => setSelectedTransaction(t)}
-                    className="text-sm hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors even:bg-slate-50 dark:even:bg-slate-800 cursor-pointer"
-                    title="Klik untuk melihat detail"
-                  >
-                    <td className="py-3 px-3 text-slate-600 dark:text-slate-300">{formatDate(t.date)}</td>
-                    <td className="py-3 px-3">
-                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
-                        t.type === 'PEMASUKAN' 
-                          ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300' 
-                          : 'bg-rose-100 text-rose-800 dark:bg-rose-900/40 dark:text-rose-300'
-                      }`}>
-                        {t.category}
-                      </span>
-                    </td>
-                    <td className={`py-3 px-3 text-right font-medium ${t.type === 'PEMASUKAN' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                      {t.type === 'PEMASUKAN' ? '+' : '-'} {formatCurrency(t.grandTotal)}
+                {filteredTransactions
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .slice(0, 5)
+                  .map((t) => (
+                  <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors cursor-pointer" onClick={() => setSelectedTransaction(t)}>
+                    <td className="py-3 px-3 text-sm text-slate-600 dark:text-slate-300">{formatDate(t.date)}</td>
+                    <td className="py-3 px-3 text-sm text-slate-600 dark:text-slate-300">{t.category}</td>
+                    <td className={`py-3 px-3 text-sm font-medium text-right ${t.type === 'PEMASUKAN' ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
+                      {t.type === 'PEMASUKAN' ? '+' : '-'}{formatCurrency(t.grandTotal)}
                     </td>
                   </tr>
                 ))}
-                {transactions.length === 0 && (
+                {filteredTransactions.length === 0 && (
                   <tr>
-                    <td colSpan={3} className="py-4 text-center text-slate-400 dark:text-slate-500">Belum ada data transaksi</td>
+                    <td colSpan={3} className="py-8 text-center text-slate-400 dark:text-slate-500 text-sm">Belum ada transaksi</td>
                   </tr>
                 )}
               </tbody>
@@ -274,6 +263,18 @@ const Dashboard: React.FC<DashboardProps> = ({ transactions, reimbursements, isD
                        <p className="text-slate-500 mb-1">Nama Kegiatan</p>
                        <p className="font-medium text-slate-800">{selectedTransaction.activityName}</p>
                     </div>
+                    {selectedTransaction.type === 'PENGELUARAN' && (
+                      <div className="col-span-2">
+                         <p className="text-slate-500 mb-1">Jenis Pengeluaran</p>
+                         <span className={`inline-flex items-center px-2 py-1 rounded text-xs font-medium ${
+                            selectedTransaction.expenseType === 'REIMBURSE' 
+                              ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' 
+                              : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                          }`}>
+                            {selectedTransaction.expenseType === 'REIMBURSE' ? 'Reimburse' : 'Regular'}
+                          </span>
+                      </div>
+                    )}
                      <div className="col-span-2">
                        <p className="text-slate-500 mb-1">Keterangan</p>
                        <p className="text-slate-800 bg-slate-50 p-3 rounded-lg border border-slate-100">{selectedTransaction.description || '-'}</p>
