@@ -299,8 +299,8 @@ const authenticateToken = (req, res, next) => {
 };
 
 // --- FILE UPLOAD STORAGE CONFIGURATION ---
-// Tujuan: ../public/img (supaya bisa diakses frontend langsung jika diperlukan)
-const publicImgDir = path.join(__dirname, '../public/img');
+// Tujuan: ./public/img (supaya bisa diakses frontend langsung jika diperlukan)
+const publicImgDir = path.join(__dirname, 'public/img');
 
 // Pastikan folder root public/img ada
 if (!fs.existsSync(publicImgDir)) {
@@ -1093,7 +1093,7 @@ app.put('/api/reimbursements/:id', authenticateToken, async (req, res) => {
 
 // --- SERVE STATIC FRONTEND & UPLOADS ---
 app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Legacy support
-app.use('/img', express.static(path.join(__dirname, '../public/img'))); // New Image Path
+app.use('/img', express.static(path.join(__dirname, 'public/img'))); // New Image Path
 
 // Determine where the frontend build is located
 // Priority 1: server/public (Vite build output for production)
