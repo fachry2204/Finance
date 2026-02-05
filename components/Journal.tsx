@@ -53,6 +53,9 @@ const Journal: React.FC<JournalProps> = ({
   // Image Preview Modal State
   const [previewImage, setPreviewImage] = useState<string | null>(null);
 
+  // Filter State
+  const [selectedCompanyFilter, setSelectedCompanyFilter] = useState<number | 'ALL'>('ALL');
+
   // Modal States
   const [confirmState, setConfirmState] = useState<{ isOpen: boolean; title: string; message: string; onConfirm: () => void; isDestructive: boolean }>({
     isOpen: false, title: '', message: '', onConfirm: () => {}, isDestructive: false
@@ -83,9 +86,18 @@ const Journal: React.FC<JournalProps> = ({
 
   // Filter transactions for the list view
   const filteredTransactions = useMemo(() => {
-    if (!filterType) return transactions;
-    return transactions.filter(t => t.type === filterType);
-  }, [transactions, filterType]);
+    let filtered = transactions;
+    
+    if (filterType) {
+        filtered = filtered.filter(t => t.type === filterType);
+    }
+
+    if (selectedCompanyFilter !== 'ALL') {
+        filtered = filtered.filter(t => t.companyId === selectedCompanyFilter);
+    }
+    
+    return filtered;
+  }, [transactions, filterType, selectedCompanyFilter]);
 
   // Add Item
   const addItem = () => {
@@ -585,6 +597,24 @@ const Journal: React.FC<JournalProps> = ({
         </form>
       ) : (
         <>
+          {/* Filter Section */}
+          <div className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 mb-6 flex flex-col md:flex-row gap-4 items-center">
+            <div className="flex items-center gap-2 text-slate-600 dark:text-slate-300">
+               <Building2 size={20} />
+               <span className="font-medium">Filter Perusahaan:</span>
+            </div>
+            <select 
+                value={selectedCompanyFilter} 
+                onChange={(e) => setSelectedCompanyFilter(e.target.value === 'ALL' ? 'ALL' : Number(e.target.value))}
+                className="flex-1 max-w-xs rounded-lg border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-900 dark:text-white border p-2 focus:ring-2 focus:ring-blue-500 outline-none transition-colors"
+            >
+                <option value="ALL">Semua Perusahaan</option>
+                {companies.map((comp) => (
+                  <option key={comp.id} value={comp.id}>{comp.name}</option>
+                ))}
+            </select>
+          </div>
+
           <div className="bg-white dark:bg-slate-800 rounded-xl shadow-md border border-slate-100 dark:border-slate-700 overflow-hidden transition-colors">
             <div className="overflow-x-auto">
               <table className="w-full text-left">
@@ -593,6 +623,9 @@ const Journal: React.FC<JournalProps> = ({
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Tanggal</th>
                     {!filterType && <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Jenis</th>}
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Kategori</th>
+                    {filterType !== 'PEMASUKAN' && (
+                      <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Sub Kategori</th>
+                    )}
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Kegiatan</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase">Item</th>
                     <th className="px-6 py-4 text-xs font-semibold text-slate-500 dark:text-slate-400 uppercase text-right">Total</th>
@@ -621,6 +654,21 @@ const Journal: React.FC<JournalProps> = ({
                           </td>
                         )}
                         <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">{t.category}</td>
+                        {filterType !== 'PEMASUKAN' && (
+                          <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
+                            {t.type === 'PENGELUARAN' ? (
+                              <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                                t.expenseType === 'REIMBURSE' 
+                                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300' 
+                                  : 'bg-slate-100 text-slate-800 dark:bg-slate-700 dark:text-slate-300'
+                              }`}>
+                                {t.expenseType === 'REIMBURSE' ? 'Reimburse' : 'Regular'}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400">-</span>
+                            )}
+                          </td>
+                        )}
                         <td className="px-6 py-4 text-sm text-slate-700 dark:text-slate-300">
                           <div className="font-medium">{t.activityName}</div>
                           <div className="text-xs text-slate-400 truncate max-w-[200px]">{t.description}</div>
